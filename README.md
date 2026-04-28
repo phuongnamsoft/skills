@@ -102,6 +102,7 @@ done
 | `find-skills` | Help users discover and install skills from the ecosystem. |
 | `frontend-design` | Distinctive, production-grade web UI (components, pages, dashboards). |
 | `internal-comms` | Internal communications—status, leadership updates, newsletters, FAQs. |
+| `laravel-best-practices` | Laravel PHP patterns—controllers, Eloquent, validation, auth, queues, performance, security (rule-backed). |
 | `laravel-patterns` | Laravel architecture: routing, Eloquent, services, queues, events, APIs. |
 | `laravel-security` | Laravel security: auth, validation, CSRF, uploads, secrets, rate limits. |
 | `mcp-builder` | Design MCP servers (FastMCP, Node MCP SDK) for external APIs and tools. |
