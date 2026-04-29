@@ -10,6 +10,7 @@ This repository hosts [Cursor agent skills](https://skills.sh/)—modular packag
 - [Quick start](#quick-start)
 - [Install with the Skills CLI](#install-with-the-skills-cli)
 - [Install every skill](#install-every-skill-in-this-repo)
+- [Install skills by focus group](#install-skills-by-focus-group)
 - [Skills in this repository](#skills-in-this-repository)
 - [Browse by focus](#browse-by-focus)
 - [Repository layout](#repository-layout)
@@ -118,6 +119,60 @@ foreach ($s in $skills) {
 ```
 
 Replace the GitHub URL if you are installing from a fork.
+
+## Install skills by focus group
+
+These bundles match the [Browse by focus](#browse-by-focus) table—if you change ids there, update the arrays here too.
+
+Pick one group (or combine arrays) and run the loop. Same GitHub URL and flags as [Install every skill in this repo](#install-every-skill-in-this-repo); add `-g` for a global install if you use that elsewhere.
+
+### Bash (macOS, Linux, Git Bash on Windows)
+
+```bash
+REPO="https://github.com/phuongnamsoft/skills"
+
+# Laravel / PHP
+SKILLS=(laravel-best-practices laravel-patterns laravel-security debug-using-debugbar)
+for s in "${SKILLS[@]}"; do npx skills add "$REPO" --skill "$s" -y; done
+
+# Testing & quality
+SKILLS=(playwright-best-practices webapp-testing code-review-excellence receiving-code-review requesting-code-review)
+for s in "${SKILLS[@]}"; do npx skills add "$REPO" --skill "$s" -y; done
+
+# Documents & decks
+SKILLS=(docx pdf pptx xlsx technical-writing doc-coauthoring)
+for s in "${SKILLS[@]}"; do npx skills add "$REPO" --skill "$s" -y; done
+
+# UI & front end
+SKILLS=(vue-best-practices frontend-design web-artifacts-builder canvas-design algorithmic-art brand-guidelines extract-design-system theme-factory)
+for s in "${SKILLS[@]}"; do npx skills add "$REPO" --skill "$s" -y; done
+
+# Planning & process
+SKILLS=(writing-plans executing-plans brainstorming architecture internal-comms)
+for s in "${SKILLS[@]}"; do npx skills add "$REPO" --skill "$s" -y; done
+
+# AI & integration
+SKILLS=(claude-api mcp-builder slack-gif-creator)
+for s in "${SKILLS[@]}"; do npx skills add "$REPO" --skill "$s" -y; done
+
+# Meta
+SKILLS=(skill-creator find-skills template)
+for s in "${SKILLS[@]}"; do npx skills add "$REPO" --skill "$s" -y; done
+```
+
+Copy only the `SKILLS` assignment and `for` loop for the group you need. Running every block in order installs the full set (equivalent to [Install every skill in this repo](#install-every-skill-in-this-repo)).
+
+### PowerShell (Windows)
+
+Set `$REPO` and the skill list, then reuse the same `foreach` pattern as [Install every skill in this repo](#install-every-skill-in-this-repo):
+
+```powershell
+$REPO = 'https://github.com/phuongnamsoft/skills'
+$skills = @('laravel-best-practices','laravel-patterns','laravel-security','debug-using-debugbar')
+foreach ($s in $skills) { npx skills add $REPO --skill $s -y }
+```
+
+Swap `$skills` for another group’s ids from the table in [Browse by focus](#browse-by-focus).
 
 ---
 
