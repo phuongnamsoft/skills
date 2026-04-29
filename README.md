@@ -140,7 +140,7 @@ SKILLS=(playwright-best-practices webapp-testing code-review-excellence receivin
 for s in "${SKILLS[@]}"; do npx skills add "$REPO" --skill "$s" -y; done
 
 # Documents & decks
-SKILLS=(docx pdf pptx xlsx technical-writing doc-coauthoring)
+SKILLS=(docx pdf pptx xlsx doc-coauthoring)
 for s in "${SKILLS[@]}"; do npx skills add "$REPO" --skill "$s" -y; done
 
 # UI & front end
@@ -148,7 +148,7 @@ SKILLS=(vue-best-practices frontend-design web-artifacts-builder canvas-design a
 for s in "${SKILLS[@]}"; do npx skills add "$REPO" --skill "$s" -y; done
 
 # Planning & process
-SKILLS=(writing-plans executing-plans brainstorming architecture internal-comms)
+SKILLS=(writing-plans executing-plans brainstorming architecture internal-comms technical-writing)
 for s in "${SKILLS[@]}"; do npx skills add "$REPO" --skill "$s" -y; done
 
 # AI & integration
@@ -225,9 +225,9 @@ Rough groupings—the full table above remains the source of truth for ids.
 | ----- | --------- |
 | Laravel / PHP | `laravel-best-practices`, `laravel-patterns`, `laravel-security`, `debug-using-debugbar` |
 | Testing & quality | `playwright-best-practices`, `webapp-testing`, `code-review-excellence`, `receiving-code-review`, `requesting-code-review` |
-| Documents & decks | `docx`, `pdf`, `pptx`, `xlsx`, `technical-writing`, `doc-coauthoring` |
+| Documents & decks | `docx`, `pdf`, `pptx`, `xlsx`, `doc-coauthoring` |
 | UI & front end | `vue-best-practices`, `frontend-design`, `web-artifacts-builder`, `canvas-design`, `algorithmic-art`, `brand-guidelines`, `extract-design-system`, `theme-factory` |
-| Planning & process | `writing-plans`, `executing-plans`, `brainstorming`, `architecture`, `internal-comms` |
+| Planning & process | `writing-plans`, `executing-plans`, `brainstorming`, `architecture`, `internal-comms`, `technical-writing` |
 | AI & integration | `claude-api`, `mcp-builder`, `slack-gif-creator` |
 | Meta | `skill-creator`, `find-skills`, `template` |
 
