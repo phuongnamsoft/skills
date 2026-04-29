@@ -1,6 +1,6 @@
 # Agent skills
 
-This repository hosts [Cursor agent skills](https://skills.sh/)—modular packages that extend assistants with specialized workflows, document tooling, and domain guidance. Install them with the [Skills CLI](https://skills.sh/) (`npx skills`).
+This repository hosts [Cursor agent skills](https://skills.sh/)—modular packages that extend assistants with specialized workflows, document tooling, and domain guidance. Install them with the [Skills CLI](https://skills.sh/) (`npx skills`), published as [`skills` on npm](https://www.npmjs.com/package/skills).
 
 **Who this is for:** anyone using Cursor (or compatible clients) who wants ready-made skills for Laravel, testing, documents, planning, MCP, and more—without copying instructions by hand.
 
@@ -42,7 +42,26 @@ npx skills add https://github.com/phuongnamsoft/skills --skill code-review-excel
 
 ## Install with the Skills CLI
 
-Use [`npx skills`](https://skills.sh/) to add, discover, and refresh skills. Adding a single skill is covered in [Quick start](#quick-start).
+Use [`npx skills`](https://skills.sh/) ([npm](https://www.npmjs.com/package/skills)) to add, discover, and refresh skills. Adding a single skill is covered in [Quick start](#quick-start).
+
+### Agent target
+
+The `add` command accepts **`-a`** / **`--agent`** to install skills into a specific coding agent’s skill directory (for example `claude-code`, `codex`, `cursor`). Pass `-a` multiple times to install to several agents in one run. The full list of agent ids is in the [Supported agents](https://www.npmjs.com/package/skills#supported-agents) table on npm.
+
+**Default:** when you omit `--agent`, the CLI uses **`claude-code`**.
+
+```bash
+# Same as omitting --agent (default claude-code)
+npx skills add https://github.com/phuongnamsoft/skills --skill code-review-excellence -y
+
+# Target Codex explicitly
+npx skills add https://github.com/phuongnamsoft/skills --skill code-review-excellence -y -a codex
+
+# Multiple agents
+npx skills add https://github.com/phuongnamsoft/skills --skill code-review-excellence -y -a claude-code -a cursor
+```
+
+Append the same `-a <agent>` flags to the `npx skills add` lines in [Install every skill in this repo](#install-every-skill-in-this-repo) and [Install skills by focus group](#install-skills-by-focus-group) when you need a non-default agent.
 
 ### Discover and update
 
@@ -53,6 +72,8 @@ npx skills update
 ```
 
 ## Install every skill in this repo
+
+Append **`-a` / `--agent`** to each `npx skills add` if you need a non-default agent (default: **`claude-code`**); see [Agent target](#agent-target).
 
 ### Bash (macOS, Linux, Git Bash on Windows)
 
@@ -124,7 +145,7 @@ Replace the GitHub URL if you are installing from a fork.
 
 These bundles match the [Browse by focus](#browse-by-focus) table—if you change ids there, update the arrays here too.
 
-Pick one group (or combine arrays) and run the loop. Same GitHub URL and flags as [Install every skill in this repo](#install-every-skill-in-this-repo); add `-g` for a global install if you use that elsewhere.
+Pick one group (or combine arrays) and run the loop. Same GitHub URL and flags as [Install every skill in this repo](#install-every-skill-in-this-repo); add `-g` for a global install if you use that elsewhere, and `-a` / `--agent` to override the default agent (see [Agent target](#agent-target)).
 
 ### Bash (macOS, Linux, Git Bash on Windows)
 
