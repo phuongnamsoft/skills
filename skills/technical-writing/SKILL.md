@@ -1,6 +1,6 @@
 ---
-name: Technical Writing
-description: Create clear, comprehensive technical documentation for specs, architecture, runbooks, and APIs. 
+name: technical-writing
+description: Create clear, comprehensive technical documentation for specs, architecture, runbooks, and APIs.
 ---
 
 Technical Writing
