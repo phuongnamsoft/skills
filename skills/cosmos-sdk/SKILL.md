@@ -72,13 +72,13 @@ Messages are **not** ABCI messages: ABCI is the engine↔app boundary; **sdk.Msg
 
 1. Identify **SDK version** and whether the change touches **consensus state**, **genesis**, or **upgrade handlers** (highest risk).
 2. Trace the path: **CLI/gRPC/REST** → **Tx** → **Ante** → **Msg router** → **keeper** → **store** / **events**.
-3. Prefer **official patterns** from the doc mirror under `skills/cosmos-sdk/references/docs` (see `references/README.md`) or current [Cosmos SDK docs](https://docs.cosmos.network).
+3. Prefer **official patterns** from the doc mirror under `references/docs` (see `references/README.md`) or current [Cosmos SDK docs](https://docs.cosmos.network).
 4. Call out **compatibility** (migrations, store keys, protobuf numbering) and **security** (keeper boundaries, minting, authz).
 5. Propose **verifiable** next steps: tests, `simd`/app CLI commands, or integration checks — not hand-wavy advice.
 
 ## Quick symptom → where to look
 
-Paths below are relative to `skills/cosmos-sdk/references/docs/`.
+Paths below are relative to `references/docs/`.
 
 | Symptom | Doc area (local mirror) |
 |---------|-------------------------|
@@ -102,5 +102,5 @@ Full index: `references/README.md`.
 ## Limitations
 
 - This skill does not replace reading **your chain’s** `app.go`, module set, or **forked SDK** patches — always anchor answers in the repo’s actual wiring and version.
-- Local copies under `skills/cosmos-sdk/references/docs` may drift from upstream; prefer pinned SDK **git tags** / **pkg.go.dev** for API truth when they disagree.
+- Local copies under `references/docs` may drift from upstream; prefer pinned SDK **git tags** / **pkg.go.dev** for API truth when they disagree.
 - Stop and ask when **consensus**, **economic**, or **legal** guarantees are unclear (slashing, minting, IBC liability, etc.).

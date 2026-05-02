@@ -1,7 +1,7 @@
 ---
 description: >-
   Index of Cosmos SDK topics mapped to the local doc mirror under
-  skills/cosmos-sdk/references/docs for deep dives while using
+  docs for deep dives while using
   the cosmos-sdk skill.
 metadata:
   tags: [cosmos-sdk, documentation, navigation]
@@ -10,7 +10,7 @@ metadata:
 
 # Cosmos SDK doc map (local mirror)
 
-**Base path (repository root):** `skills/cosmos-sdk/references/docs/`
+**Base path:** `docs/`
 
 Tables below list paths **under that directory** (same layout as upstream docs).
 
