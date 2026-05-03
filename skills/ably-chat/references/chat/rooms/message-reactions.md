@@ -1,0 +1,1050 @@
+# Message reactions
+
+Send, remove and display message reactions in a chat room. Users can react to messages, typically with emojis but can be any string, and others can see the reactions to the message. Message reactions can be sent and removed and a summary of the reactions is persisted with the message.
+
+The reaction `name` represents the reaction itself, for example an emoji. Reactions are aggregated by `name` and the aggregation method including how many reactions a user can place for a message is controlled by the reaction `type`. The `count` is an optional parameter that can be set when sending a reaction of type `Multiple`.
+
+The reaction `name` can be any string. Summaries are aggregated based on unique `name` values. UTF-8 emojis are a common use case, but any string can be used as long as they are consistent across all front-ends of your app. Examples of common reaction names are `👍`, `❤️`, `:like:`, `like`, `+1`, and so on. How those are presented to the user is entirely up to the app.
+
+## Types of message reactions 
+
+Ably Chat supports three types of message reactions. They differ in how they are aggregated and what are the rules for sending and removing them.
+
+| Type | Description | Example | Similar to |
+| ---- | ----------- | ------- | --------- |
+| `Unique` | Users can send a single reaction per message. If they react again, their previous reaction is replaced with the new one. | A user can send a 👍, but sending a ❤️ will replace the 👍. | iMessage, WhatsApp, Facebook Messenger |
+| `Distinct` | Users can send each type of reaction once per message. Multiple different reactions are allowed, but duplicates are not. | A user can send both 👍 and ❤️, but cannot send a second 👍. | Slack |
+| `Multiple` | Users can send unlimited reactions, including duplicates. A count parameter specifies how many reactions to send at once. Each new reaction adds to the total count. | A user can send 10 👍 reactions and 100 ❤️ reactions to the same message. | Claps on Medium |
+
+Note that if sending two identical reactions of type `Distinct`, the second one will be accepted and broadcast as a raw reaction, but it will be ignored in the summary (aggregate). Similarly, when removing a reaction that doesn't exist (of any type), the operation will be accepted and broadcast as a raw reaction, but it will have no effect on the summary.
+
+### Configure the default reaction type 
+
+<If lang="javascript,swift,kotlin,android">
+The default reaction type can be configured at room-level by passing `RoomOptions` when calling `rooms.get`. If nothing is set, the default is `Distinct`.
+</If>
+
+<If lang="react">
+The default reaction type can be configured at room-level by passing `RoomOptions` to the `ChatRoomProvider`. If nothing is set, the default is `Distinct`.
+</If>
+
+<Code>
+
+#### Javascript
+
+```
+import { MessageReactionType } from '@ably/chat';
+
+const room = await ablyChatClient.rooms.get('room1', {
+    messages: {
+        defaultMessageReactionType: MessageReactionType.Unique,
+    },
+});
+```
+
+#### Swift
+
+```
+let room = try await ablyChatClient.rooms.get(
+    named: "room1",
+    options: .init(
+        messages: .init(defaultMessageReactionType: .unique)
+    )
+)
+```
+
+#### Kotlin
+
+```
+val room = ablyChatClient.rooms.get("room1") {
+    messages {
+        defaultMessageReactionType = MessageReactionType.Unique
+    }
+}
+```
+
+#### Android
+
+```
+val room = ablyChatClient.rooms.get("room1") {
+    messages {
+        defaultMessageReactionType = MessageReactionType.Unique
+    }
+}
+```
+
+#### React
+
+```
+import { MessageReactionType } from '@ably/chat';
+import { ChatRoomProvider } from '@ably/chat/react';
+
+const roomOptions = {
+  messages: {
+    defaultMessageReactionType: MessageReactionType.Unique,
+  },
+};
+
+const MyComponent = () => {
+  return (
+    <ChatRoomProvider name="room1" options={roomOptions}>
+      <RoomContent />
+    </ChatRoomProvider>
+  );
+};
+```
+</Code>
+
+## Sending a message reaction 
+
+<If lang="javascript,swift,kotlin,android">
+To send a message reaction use `room.messages.reactions.send(message, params)`. This method takes the following parameters:
+* `message` - The message to send the reaction to. Can be either a Message object or a string containing the message serial.
+* `params` - Set the `name`, and optionally override the `type` or set a `count`.
+</If>
+
+<If lang="react">
+Use the [`sendReaction()`](https://sdk.ably.com/builds/ably/ably-chat-js/main/typedoc/interfaces/chat-react.UseMessagesResponse.html#sendReaction) method available from the response of the `useMessages` hook to send a reaction to a message. This method takes the following parameters:
+* `message` - The message to send the reaction to. Can be either a Message object or a string containing the message serial.
+* `params` - Set the `name`, and optionally override the `type` or set a `count`.
+</If>
+
+<Code>
+
+### Javascript
+
+```
+import { MessageReactionType } from '@ably/chat';
+
+// Send a 👍 reaction using the default type
+await room.messages.reactions.send(message, { name: '👍' });
+
+// The reaction can be anything, not just UTF-8 emojis:
+await room.messages.reactions.send(message, { name: ':like:' });
+await room.messages.reactions.send(message, { name: '+1' });
+
+// Send a :love: reaction using the Unique type
+await room.messages.reactions.send(message, {
+    name: ':love:',
+    type: MessageReactionType.Unique,
+});
+
+// Send a ❤️ reaction with count 100 using the Multiple type
+await room.messages.reactions.send(message, {
+    name: '❤️',
+    type: MessageReactionType.Multiple,
+    count: 100,
+});
+```
+
+### Swift
+
+```
+// Send a 👍 reaction using the default type
+try await room.messages.reactions.send(forMessageWithSerial: message.serial, params: .init(name: "👍"))
+
+// The reaction can be anything, not just UTF-8 emojis:
+try await room.messages.reactions.send(forMessageWithSerial: message.serial, params: .init(name: ":like:"))
+try await room.messages.reactions.send(forMessageWithSerial: message.serial, params: .init(name: "+1"))
+
+// Send a :love: reaction using the Unique type
+try await room.messages.reactions.send(forMessageWithSerial: message.serial, params: .init(
+  name: ":love:",
+  type: .unique
+))
+
+// Send a ❤️ reaction with count 100 using the Multiple type
+try await room.messages.reactions.send(forMessageWithSerial: message.serial, params: .init(
+  name: "❤️",
+  type: .multiple,
+  count: 100
+))
+```
+
+### Kotlin
+
+```
+// Send a 👍 reaction using the default type
+room.messages.reactions.send(message, name = "👍")
+
+// The reaction can be anything, not just UTF-8 emojis:
+room.messages.reactions.send(message, name = ":like:")
+room.messages.reactions.send(message, name = "+1")
+
+// Send a :love: reaction using the Unique type
+room.messages.reactions.send(message,
+  name = ":love:",
+  type = MessageReactionType.Unique,
+)
+
+// Send a ❤️ reaction with count 100 using the Multiple type
+room.messages.reactions.send(message,
+  name = "❤️",
+  type = MessageReactionType.Multiple,
+  count = 100,
+)
+```
+
+### Android
+
+```
+import androidx.compose.material.*
+import androidx.compose.runtime.*
+import com.ably.chat.Message
+import com.ably.chat.MessageReactionType
+import com.ably.chat.Room
+import kotlinx.coroutines.launch
+
+@Composable
+fun SendMessageReactionComponent(room: Room, message: Message) {
+  val coroutineScope = rememberCoroutineScope()
+
+  Button(onClick = {
+    coroutineScope.launch {
+      // Send a 👍 reaction using the default type
+      room.messages.reactions.send(message, name = "👍")
+    }
+  }) {
+    Text("Send 👍")
+  }
+
+  Button(onClick = {
+    coroutineScope.launch {
+      // Send a ❤️ reaction with count 100 using the Multiple type
+      room.messages.reactions.send(
+        message,
+        name = "❤️",
+        type = MessageReactionType.Multiple,
+        count = 100,
+      )
+    }
+  }) {
+    Text("Send ❤️ x100")
+  }
+}
+```
+
+### React
+
+```
+import { MessageReactionType } from '@ably/chat';
+import { useMessages } from '@ably/chat/react';
+
+const MyComponent = () => {
+  const { sendReaction } = useMessages();
+
+  const handleSendReaction = async (message) => {
+    try {
+      // Send a 👍 reaction using the default type
+      await sendReaction(message, { name: '👍' });
+
+      // The reaction can be anything, not just UTF-8 emojis:
+      await sendReaction(message, { name: ':like:' });
+      await sendReaction(message, { name: '+1' });
+
+      // Send a :love: reaction using the Unique type
+      await sendReaction(message, {
+        name: ':love:',
+        type: MessageReactionType.Unique,
+      });
+
+      // Send a ❤️ reaction with count 100 using the Multiple type
+      await sendReaction(message, {
+        name: '❤️',
+        type: MessageReactionType.Multiple,
+        count: 100,
+      });
+    } catch (error) {
+      console.error('Error sending reaction:', error);
+    }
+  };
+
+  return (
+    <div>
+      <button onClick={() => handleSendReaction(message)}>Send Reaction</button>
+    </div>
+  );
+};
+```
+</Code>
+
+<Aside data-type='note'>
+The `annotation-publish` capability is required for sending reactions.
+</Aside>
+
+## Removing a message reaction 
+
+<If lang="javascript,swift,kotlin,android">
+To remove a message reaction use `room.messages.reactions.delete(message, params)`. This method takes the following parameters:
+* `message` - The message to remove the reaction from. This can be a Message object, or just the string serial.
+* `params` - Set the `name`, and optionally override the `type` or set a `count`.
+</If>
+
+<If lang="react">
+Use the [`deleteReaction()`](https://sdk.ably.com/builds/ably/ably-chat-js/main/typedoc/interfaces/chat-react.UseMessagesResponse.html#deleteReaction) method available from the response of the `useMessages` hook to remove a reaction from a message. This method takes the following parameters:
+* `message` - The message to remove the reaction from. This can be a Message object, or just the string serial.
+* `params` - Set the `name`, and optionally override the `type` or set a `count`.
+</If>
+
+<Code>
+
+### Javascript
+
+```
+// Remove a 👍 reaction using the default type
+await room.messages.reactions.delete(message, { name: '👍' });
+
+// Remove a :love: reaction using the Unique type
+await room.messages.reactions.delete(message, {
+    name: ':love:',
+    type: MessageReactionType.Unique,
+});
+
+// Remove a ❤️ reaction with count 50 using the Multiple type
+await room.messages.reactions.delete(message, {
+    name: '❤️',
+    type: MessageReactionType.Multiple,
+    count: 50,
+});
+```
+
+### React
+
+```
+import { MessageReactionType } from '@ably/chat';
+import { useMessages } from '@ably/chat/react';
+
+const MyComponent = () => {
+  const { deleteReaction } = useMessages();
+
+  const handleRemoveReaction = async (message) => {
+    try {
+      // Remove a 👍 reaction using the default type
+      await deleteReaction(message, { name: '👍' });
+
+      // Remove a :love: reaction using the Unique type
+      await deleteReaction(message, {
+        name: ':love:',
+        type: MessageReactionType.Unique,
+      });
+
+      // Remove a ❤️ reaction with count 50 using the Multiple type
+      await deleteReaction(message, {
+        name: '❤️',
+        type: MessageReactionType.Multiple,
+        count: 50,
+      });
+    } catch (error) {
+      console.error('Error removing reaction:', error);
+    }
+  };
+
+  return (
+    <div>
+      <button onClick={() => handleRemoveReaction(message)}>Remove Reaction</button>
+    </div>
+  );
+};
+```
+
+### Swift
+
+```
+// Remove a 👍 reaction using the default type
+try await room.messages.reactions.delete(fromMessageWithSerial: message.serial, params: .init(name: "👍"))
+
+// Remove a :love: reaction using the Unique type
+try await room.messages.reactions.delete(fromMessageWithSerial: message.serial, params: .init(
+  name: ":love:",
+  type: .unique
+))
+
+// Remove a ❤️ reaction using the Multiple type
+try await room.messages.reactions.delete(fromMessageWithSerial: message.serial, params: .init(
+  name: "❤️",
+  type: .multiple
+))
+```
+
+### Kotlin
+
+```
+// Remove a 👍 reaction using the default type
+room.messages.reactions.delete(message, name = "👍")
+
+// Remove a :love: reaction using the Unique type
+room.messages.reactions.delete(message,
+  name = ":love:",
+  type = MessageReactionType.Unique,
+)
+
+// Remove a ❤️ reaction using the Multiple type
+room.messages.reactions.delete(message,
+  name = "❤️",
+  type = MessageReactionType.Multiple,
+)
+```
+
+### Android
+
+```
+import androidx.compose.material.*
+import androidx.compose.runtime.*
+import com.ably.chat.Message
+import com.ably.chat.MessageReactionType
+import com.ably.chat.Room
+import kotlinx.coroutines.launch
+
+@Composable
+fun RemoveMessageReactionComponent(room: Room, message: Message) {
+  val coroutineScope = rememberCoroutineScope()
+
+  Button(onClick = {
+    coroutineScope.launch {
+      // Remove a 👍 reaction using the default type
+      room.messages.reactions.delete(message, name = "👍")
+    }
+  }) {
+    Text("Remove 👍")
+  }
+
+  Button(onClick = {
+    coroutineScope.launch {
+      // Remove a ❤️ reaction using the Multiple type
+      room.messages.reactions.delete(
+        message,
+        name = "❤️",
+        type = MessageReactionType.Multiple,
+      )
+    }
+  }) {
+    Text("Remove ❤️")
+  }
+}
+```
+</Code>
+
+<Aside data-type="usp">
+Reliable reaction delivery.
+
+Reactions are [delivered to all users without fail](https://ably.com/docs/platform/architecture/connection-recovery.md), even during brief network disruptions.
+</Aside>
+
+## Messages and reactions 
+
+The `Message` object contains a `reactions` property which is an object that looks like this:
+
+<Code>
+
+### Javascript
+
+```
+interface Message {
+    // ... (other fields omitted)
+    reactions: {
+        unique: Ably.SummaryUniqueValues,
+        distinct: Ably.SummaryDistinctValues,
+        multiple: Ably.SummaryMultipleValues,
+    }
+}
+
+// example (in real use, it is unlikely that all reaction types are present):
+{
+    // ... other message fields omitted
+    reactions: {
+        unique: {
+            '👍': { total: 2, clientIds: ['clientA', 'clientB'] },
+            '❤️': { total: 1, clientIds: ['clientC'] },
+        },
+        distinct: {
+            '👍': { total: 2, clientIds: ['clientA', 'clientB'] },
+            '❤️': { total: 1, clientIds: ['clientA'] },
+        },
+        multiple: {
+            '👍': { total: 10, clientIds: {'clientA': 7, 'clientB': 3} },
+            '❤️': { total: 100, clientIds: {'clientA': 100} },
+        },
+    }
+}
+```
+
+### React
+
+```
+interface Message {
+    // ... (other fields omitted)
+    reactions: {
+        unique: Ably.SummaryUniqueValues,
+        distinct: Ably.SummaryDistinctValues,
+        multiple: Ably.SummaryMultipleValues,
+    }
+}
+
+// example (in real use, it is unlikely that all reaction types are present):
+{
+    // ... other message fields omitted
+    reactions: {
+        unique: {
+            '👍': { total: 2, clientIds: ['clientA', 'clientB'] },
+            '❤️': { total: 1, clientIds: ['clientC'] },
+        },
+        distinct: {
+            '👍': { total: 2, clientIds: ['clientA', 'clientB'] },
+            '❤️': { total: 1, clientIds: ['clientA'] },
+        },
+        multiple: {
+            '👍': { total: 10, clientIds: {'clientA': 7, 'clientB': 3} },
+            '❤️': { total: 100, clientIds: {'clientA': 100} },
+        },
+    }
+}
+```
+
+### Swift
+
+```
+struct Message {
+    // ... (other fields omitted)
+    var reactions: MessageReactionSummary
+}
+
+struct MessageReactionSummary {
+    var unique: [String: ClientIDList]
+    var distinct: [String: ClientIDList]
+    var multiple: [String: ClientIDCounts]
+}
+
+// example (in real use, it is unlikely that all reaction types are present):
+// ... other message fields omitted
+reactions: MessageReactionSummary(
+    unique: [
+        "👍": ClientIDList(total: 2, clientIDs: ["clientA", "clientB"], clipped: false),
+        "❤️": ClientIDList(total: 1, clientIDs: ["clientC"], clipped: false),
+    ],
+    distinct: [
+        "👍": ClientIDList(total: 2, clientIDs: ["clientA", "clientB"], clipped: false),
+        "❤️": ClientIDList(total: 1, clientIDs: ["clientA"], clipped: false),
+    ],
+    multiple: [
+        "👍": ClientIDCounts(total: 10, clientIDs: ["clientA": 7, "clientB": 3], totalUnidentified: 0, clipped: false, totalClientIDs: 2),
+        "❤️": ClientIDCounts(total: 100, clientIDs: ["clientA": 100], totalUnidentified: 0, clipped: false, totalClientIDs: 1),
+    ]
+)
+```
+
+### Kotlin
+
+```
+interface Message {
+    // ... (other fields omitted)
+    val reactions: MessageReactionSummary
+}
+
+interface MessageReactionSummary {
+    val unique: Map<String, SummaryClientIdList>
+    val distinct: Map<String, SummaryClientIdList>
+    val multiple: Map<String, SummaryClientIdCounts>
+}
+
+// example (in real use, it is unlikely that all reaction types are present):
+// ... other message fields omitted
+reactions = MessageReactionSummary(
+    unique = mapOf(
+        "👍" to SummaryClientIdList(total = 2, clientIds = listOf("clientA", "clientB"), clipped = false),
+        "❤️" to SummaryClientIdList(total = 1, clientIds = listOf("clientC"), clipped = false),
+    ),
+    distinct = mapOf(
+        "👍" to SummaryClientIdList(total = 2, clientIds = listOf("clientA", "clientB"), clipped = false),
+        "❤️" to SummaryClientIdList(total = 1, clientIds = listOf("clientA"), clipped = false),
+    ),
+    multiple = mapOf(
+        "👍" to SummaryClientIdCounts(total = 10, clientIds = mapOf("clientA" to 7, "clientB" to 3), totalUnidentified = 0, clipped = false, totalClientIds = 2),
+        "❤️" to SummaryClientIdCounts(total = 100, clientIds = mapOf("clientA" to 100), totalUnidentified = 0, clipped = false, totalClientIds = 1),
+    )
+)
+```
+
+### Android
+
+```
+interface Message {
+    // ... (other fields omitted)
+    val reactions: MessageReactionSummary
+}
+
+interface MessageReactionSummary {
+    val unique: Map<String, SummaryClientIdList>
+    val distinct: Map<String, SummaryClientIdList>
+    val multiple: Map<String, SummaryClientIdCounts>
+}
+
+// example (in real use, it is unlikely that all reaction types are present):
+// ... other message fields omitted
+reactions = MessageReactionSummary(
+    unique = mapOf(
+        "👍" to SummaryClientIdList(total = 2, clientIds = listOf("clientA", "clientB"), clipped = false),
+        "❤️" to SummaryClientIdList(total = 1, clientIds = listOf("clientC"), clipped = false),
+    ),
+    distinct = mapOf(
+        "👍" to SummaryClientIdList(total = 2, clientIds = listOf("clientA", "clientB"), clipped = false),
+        "❤️" to SummaryClientIdList(total = 1, clientIds = listOf("clientA"), clipped = false),
+    ),
+    multiple = mapOf(
+        "👍" to SummaryClientIdCounts(total = 10, clientIds = mapOf("clientA" to 7, "clientB" to 3), totalUnidentified = 0, clipped = false, totalClientIds = 2),
+        "❤️" to SummaryClientIdCounts(total = 100, clientIds = mapOf("clientA" to 100), totalUnidentified = 0, clipped = false, totalClientIds = 1),
+    )
+)
+```
+</Code>
+
+All reaction types are always available via `Message.reactions`, regardless of the default reaction type configured via room options.
+
+The `Message.reactions` property is populated when fetching messages from history through `historyBeforeSubscribe()` or `room.messages.history()`. It is **not** populated when receiving message events such as `ChatMessageEventType.Created`, `ChatMessageEventType.Updated`, or `ChatMessageEventType.Deleted` from the realtime channel.
+
+Always call `Message.with(event)` when applying message events and reaction events to existing messages to ensure that reactions are correctly copied or updated. **Do not** replace existing messages with messages received from events as reactions will be lost.
+
+
+## Subscribing to message reactions 
+
+<If lang="javascript,swift,kotlin,android">
+Ably generates a summary (aggregate) of the reactions for each message and for each reaction type. For displaying accurate counts for message reactions, subscribe to changes in the message summary.
+</If>
+
+<If lang="android">
+Use the [`reactions.asFlow()`](https://sdk.ably.com/builds/ably/ably-chat-kotlin/main/dokka/chat/com.ably.chat/as-flow.html) to receive new message reactions:
+</If>
+
+<If lang="react">
+Subscribe to message reactions with the [`useMessages`](https://sdk.ably.com/builds/ably/ably-chat-js/main/typedoc/functions/chat-react.useMessages.html) hook. Supply a `reactionsListener` to receive message reaction summary events. Ably generates a summary (aggregate) of the reactions for each message and for each reaction type. For displaying accurate counts for message reactions, subscribe to changes in the message summary.
+</If>
+
+<Code>
+
+### Javascript
+
+```
+room.messages.reactions.subscribe((event) => {
+    console.log("received reactions summary event", event);
+});
+```
+
+### Swift
+
+```
+room.messages.reactions.subscribe { event in
+    print("received reactions summary event: \(event)")
+}
+```
+
+### Kotlin
+
+```
+room.messages.reactions.subscribe { event ->
+    println("received reactions summary event: $event")
+}
+```
+
+### Android
+
+```
+import androidx.compose.runtime.*
+import com.ably.chat.Room
+
+@Composable
+fun SubscribeToReactionsComponent(room: Room) {
+  LaunchedEffect(room) {
+    room.messages.reactions.asFlow().collect { event ->
+      println("received reactions summary event: $event")
+    }
+  }
+}
+```
+
+### React
+
+```
+import { useMessages } from '@ably/chat/react';
+
+const MyComponent = () => {
+  useMessages({
+    reactionsListener: (event) => {
+      console.log("received reactions summary event", event);
+    },
+  });
+
+  return <div>...</div>;
+};
+```
+</Code>
+
+The event is of type `reaction.summary`. `event.reactions` is the received reactions summary and contains the following properties:
+
+| Property | Description | Example |
+| -------- | ----------- | ------- |
+| `messageSerial` | Serial of the message this summary is for. | `01826232498871-001&#64;abcdefghij:001` |
+| `unique` | Unique reactions summary. | `{ "👍": { total: 2, clientIds: ["a", "b"]} }` |
+| `distinct` | Distinct reactions summary. | `{ "👍": { total: 2, clientIds: ["a", "b"]} }` |
+| `multiple` | Multiple reactions summary. | `{ "👍": { total: 5, clientIds: {"a": 2, "b": 3} }` |
+
+Message reaction summary events can be used with `Message.with(event)` to get an updated message object, with the reactions applied correctly. Similarly, when calling `Message.with()` with other message events (for example `ChatMessageEventType.Updated`), the reactions summary will be correctly preserved in the resulting message object.
+
+Example usage:
+
+<Code>
+
+### Javascript
+
+```
+// init messages, in practice this should be updated with a message subscription
+let messages = await room.messages.history({limit: 50});
+
+// subscribe to message reactions summary events
+room.messages.reactions.subscribe((event) => {
+    // find the relevant message (in practice: use binary search or a map for lookups)
+    const idx = messages.findLastIndex((msg) => msg.serial === event.messageSerial);
+    if (idx === -1) {
+        // not found
+        return;
+    }
+    // update message
+    messages[idx] = messages[idx].with(event);
+});
+```
+
+### Swift
+
+```
+// init messages, in practice this should be updated with a message subscription
+var messages = (try await room.messages.history(withParams: .init(limit: 50))).items
+
+// subscribe to message reactions summary events
+room.messages.reactions.subscribe { event in
+    if let idx = messages.lastIndex(where: { $0.serial == event.messageSerial }) {
+        messages[idx] = messages[idx].with(event)
+    }
+}
+```
+
+### Kotlin
+
+```
+// init messages, in practice this should be updated with a message subscription
+val messages = room.messages.history(limit = 50).items.toMutableList()
+
+// subscribe to message reactions summary events
+room.messages.reactions.subscribe { event ->
+    // find the relevant message (in practice: use binary search or a map for lookups)
+    val idx = messages.indexOfLast { msg -> msg.serial == event.messageSerial }
+    if (idx != -1) {
+        // update message
+        messages[idx] = messages[idx].with(event)
+    }
+}
+```
+
+### Android
+
+```
+import androidx.compose.runtime.*
+import com.ably.chat.Message
+import com.ably.chat.Room
+
+@Composable
+fun ReactionsWithMessagesComponent(room: Room) {
+  var messages by remember { mutableStateOf<List<Message>>(emptyList()) }
+
+  LaunchedEffect(room) {
+    // init messages
+    messages = room.messages.history(limit = 50).items
+  }
+
+  LaunchedEffect(room) {
+    // subscribe to message reactions summary events
+    room.messages.reactions.asFlow().collect { event ->
+      // find the relevant message (in practice: use binary search or a map for lookups)
+      val idx = messages.indexOfLast { msg -> msg.serial == event.messageSerial }
+      if (idx != -1) {
+        // update message
+        messages = messages.toMutableList().apply {
+          this[idx] = this[idx].with(event)
+        }
+      }
+    }
+  }
+}
+```
+
+### React
+
+```
+import { useState, useEffect } from 'react';
+import { useMessages, Message } from '@ably/chat/react';
+
+const MyComponent = () => {
+  const [messages, setMessages] = useState<Message[]>([]);
+
+  const { historyBeforeSubscribe } = useMessages({
+    reactionsListener: (event) => {
+      // find the relevant message (in practice: use binary search or a map for lookups)
+      setMessages((prevMessages) => {
+        const idx = prevMessages.findLastIndex((msg) => msg.serial === event.messageSerial);
+        if (idx === -1) {
+          // not found
+          return prevMessages;
+        }
+        // update message
+        const updatedMessages = [...prevMessages];
+        updatedMessages[idx] = updatedMessages[idx].with(event);
+        return updatedMessages;
+      });
+    },
+  });
+
+  // Initialize messages on component mount
+  useEffect(() => {
+    if (!historyBeforeSubscribe) return
+    const initMessages = async () => {
+      try {
+        const result = await historyBeforeSubscribe({ limit: 50 });
+        setMessages(result.items);
+      } catch (error) {
+        console.error('Error fetching messages:', error);
+      }
+    };
+    initMessages();
+  }, [historyBeforeSubscribe]);
+
+  return <div>...</div>;
+};
+```
+</Code>
+
+### Summary events are sent efficiently at scale 
+
+Summary events are typically created and published immediately after a reaction is sent or removed. If the reaction is a no-op (for example, when removing a reaction that didn't exist), then there will be no summary event.
+
+If multiple reactions are sent in a short period of time, multiple reactions may be rolled up and only a single summary event will be published that contains the aggregated results of all reactions. This reduces the number of outbound messages and thus your costs in busy rooms.
+
+
+<If lang="react,javascript">
+#### Large summaries 
+
+If many clients send the same reaction to the same message, the list of client IDs in that reaction summary will get clipped in order to keep the event size within the maximum message size.
+
+When a summary is clipped:
+- The `total` property shows the total number of reactions as expected, but the `clientIds` property will contain only a partial list of client IDs.
+- The `clipped` property is set to `true`.
+- For the `multiple` reaction type, use the `totalClientIds` property to determine the total number of clients that have sent the reaction. For the other reaction types this is equal to `total`.
+
+To determine if a particular client has reacted when the summary is clipped use `room.messages.reactions.clientReactions(message, clientId)`. It returns a custom clipped summary that contains the given clientId's reactions only.
+</If>
+
+### Subscribing to raw reactions 
+
+Raw individual reactions are published for every reaction, unlike summaries which can be rolled up. Raw reactions are useful for receiving all reaction events, but they are not suitable for the purpose of displaying message reaction counts as their effect on the reactions summary depends on the previous reactions.
+
+Individual reactions are not received by default to save bandwidth and to reduce the number of messages and cost. If you want to receive them, you can enable them via the `rawMessageReactions` room option:
+
+<Code>
+
+#### Javascript
+
+```
+const room = await ablyChatClient.rooms.get('room1', {
+    messages: {
+        rawMessageReactions: true,
+    },
+});
+```
+
+#### Swift
+
+```
+let room = try await ablyChatClient.rooms.get(
+    named: "room1",
+    options: .init(
+        messages: .init(rawMessageReactions: true)
+    )
+)
+```
+
+#### Kotlin
+
+```
+val room = ablyChatClient.rooms.get("room1") {
+    messages {
+        rawMessageReactions = true
+    }
+}
+```
+
+#### Android
+
+```
+val room = ablyChatClient.rooms.get("room1") {
+    messages {
+        rawMessageReactions = true
+    }
+}
+```
+
+#### React
+
+```
+import { ChatRoomProvider } from '@ably/chat/react';
+
+const roomOptions = {
+  messages: {
+    rawMessageReactions: true,
+  },
+};
+
+const MyComponent = () => {
+  return (
+    <ChatRoomProvider name="room1" options={roomOptions}>
+      <RoomContent />
+    </ChatRoomProvider>
+  );
+};
+```
+</Code>
+
+<If lang="javascript,swift,kotlin,android">
+Then you can receive raw reactions using the `room.messages.reactions.subscribeRaw()` method:
+</If>
+
+<If lang="react">
+Then you can receive raw reactions using the `rawReactionsListener` parameter in the `useMessages` hook:
+</If>
+
+<Code>
+
+#### Javascript
+
+```
+room.messages.reactions.subscribeRaw((event) => {
+    if (event.type === MessageReactionEventType.Create) {
+        console.log("new reaction", event.reaction);
+    } else if (event.type === MessageReactionEventType.Delete) {
+        console.log("reaction removed", event.reaction);
+    }
+});
+```
+
+#### Swift
+
+```
+room.messages.reactions.subscribeRaw { event in
+    if (event.type == .create) {
+        print("new reaction: \(event.reaction)")
+    } else if (event.type == .delete) {
+        print("reaction removed: \(event.reaction)")
+    }
+}
+```
+
+#### Kotlin
+
+```
+room.messages.reactions.subscribeRaw { event ->
+    if (event.type == MessageReactionEventType.Create) {
+        println("new reaction: ${event.reaction}")
+    } else if (event.type == MessageReactionEventType.Delete) {
+        println("reaction removed: ${event.reaction}")
+    }
+}
+```
+
+#### Android
+
+```
+import androidx.compose.runtime.*
+import com.ably.chat.MessageReactionEventType
+import com.ably.chat.Room
+
+@Composable
+fun SubscribeToRawReactionsComponent(room: Room) {
+  DisposableEffect(room) {
+    val (unsubscribe) = room.messages.reactions.subscribeRaw { event ->
+      if (event.type == MessageReactionEventType.Create) {
+        println("new reaction: ${event.reaction}")
+      } else if (event.type == MessageReactionEventType.Delete) {
+        println("reaction removed: ${event.reaction}")
+      }
+    }
+
+    onDispose {
+      unsubscribe()
+    }
+  }
+}
+```
+
+#### React
+
+```
+import { useMessages } from '@ably/chat/react';
+import { MessageReactionEventType } from '@ably/chat';
+
+const MyComponent = () => {
+  useMessages({
+    rawReactionsListener: (event) => {
+      if (event.type === MessageReactionEventType.Create) {
+        console.log("new reaction", event.reaction);
+      } else if (event.type === MessageReactionEventType.Delete) {
+        console.log("reaction removed", event.reaction);
+      }
+    },
+  });
+
+  return <div>...</div>;
+};
+```
+</Code>
+
+Raw reaction events include a `reaction.userClaim` field containing the server-signed [user claim](https://ably.com/docs/chat/setup.md#user-claims) of the user who sent the reaction, derived from their [JWT](https://ably.com/docs/chat/setup.md#set-user-claims).
+
+<Aside data-type='note'>
+The `annotation-subscribe` capability is required for receiving individual reactions, however it is not required to receive summaries.
+</Aside>
+
+You should be aware of the following limitations:
+
+* Deleting a reaction succeeds even if it did not initially exist. It is a no-op in regards to the summary but the delete event is still broadcast.
+* Sending a reaction succeeds and is broadcast, even if it has no effect on the summary (for example, when double-sending a reaction with the same name of type `Distinct` or `Unique`).
+* Sending a reaction of type `Unique` may remove another reaction, but no delete event will be broadcast.
+* It is not recommended to use raw reactions for displaying counts, instead use the summary events.
+* Keeping a local summary updated based on raw reactions is not recommended as it may become out-of-sync with server-generated summaries.
+
+## Mapping of message reactions to annotations 
+
+Chat message reactions are powered by the PubSub annotations feature. Chat uses the `reaction:` prefix for annotation types. Here is the mapping from message reaction types to annotation types:
+
+| Reaction type | Annotation type |
+| ------------- | --------------- |
+| `unique` | `reaction:unique.v1` |
+| `distinct` | `reaction:distinct.v1` |
+| `multiple` | `reaction:multiple.v1` |
+
+Messages arriving from the realtime channel will show the annotation type. The Chat SDKs automatically map the annotation type to the message reaction type.
+
+## Related Topics
+
+- [Messages](https://ably.com/docs/chat/rooms/messages.md): Send, update, delete, and receive messages in chat rooms.
+- [Message history](https://ably.com/docs/chat/rooms/history.md): Retrieve previously sent messages from history.
+- [Presence](https://ably.com/docs/chat/rooms/presence.md): Use presence to see which users are online and their user status.
+- [Occupancy](https://ably.com/docs/chat/rooms/occupancy.md): Use occupancy to see how many users are in a room.
+- [Typing indicators](https://ably.com/docs/chat/rooms/typing.md): Display typing indicators in a room so that users can see when someone else is writing a message.
+- [Room reactions](https://ably.com/docs/chat/rooms/reactions.md): Enable users to send reactions at the room level, based on what is happening in your application, such as a goal being scored in your livestream.
+- [Share media](https://ably.com/docs/chat/rooms/media.md): Share media such as images, videos, or files in a chat room.
+- [Message replies](https://ably.com/docs/chat/rooms/replies.md): Add reply functionality to messages in a chat room.
+
+## Documentation Index
+
+To discover additional Ably documentation:
+
+1. Fetch [llms.txt](https://ably.com/llms.txt) for the canonical list of available pages.
+2. Identify relevant URLs from that index.
+3. Fetch target pages as needed.
+
+Avoid using assumed or outdated documentation paths.

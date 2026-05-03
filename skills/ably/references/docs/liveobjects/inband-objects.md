@@ -1,0 +1,311 @@
+# Inband Objects
+
+<If lang="javascript">
+  <Aside data-type='note'>
+  **Building with LiveObjects?** Help shape its future by [sharing your use case](https://44qpp.share.hsforms.com/2fZobHQA1ToyRfB9xqZYQmQ).
+  </Aside>
+</If>
+<If lang="swift">
+  <Aside data-type='experimental'>
+  LiveObjects Swift is currently Experimental. Its features are still in development and subject to rapid change.
+
+  **Building with LiveObjects?** Help shape its future by [sharing your use case](https://44qpp.share.hsforms.com/2fZobHQA1ToyRfB9xqZYQmQ).
+  </Aside>
+</If>
+<If lang="java">
+  <Aside data-type='experimental'>
+  LiveObjects Java is currently Experimental. Its features are still in development and subject to rapid change.
+
+  **Building with LiveObjects?** Help shape its future by [sharing your use case](https://44qpp.share.hsforms.com/2fZobHQA1ToyRfB9xqZYQmQ).
+  </Aside>
+</If>
+
+Inband objects enables clients to subscribe to LiveObjects updates in realtime, even on platforms that don't yet have a native LiveObjects Realtime client implementation.
+
+<Aside data-type='note'>
+If you're using LiveObjects from one of the the following languages, then use the LiveObjects plugin which has dedicated support for all LiveObjects features:
+
+* [JavaScript/TypeScript](https://ably.com/docs/liveobjects/quickstart/javascript.md)
+* [Swift](https://ably.com/docs/liveobjects/quickstart/swift.md)
+* [Java](https://ably.com/docs/liveobjects/quickstart/java.md)
+</Aside>
+
+Inband objects works by delivering changes to channel objects as regular channel messages, similar to [inband occupancy](https://ably.com/docs/channels/options.md#occupancy). Two modes are available:
+
+| Mode | Description |
+| --- | --- |
+| `objects`      | Sends the full state of all objects on the channel. Delivers an initial state snapshot on attach and sends updates whenever an object operation is applied.                                        |
+| `notification` | Sends a notification when an object operation has been received, without the full state data. Clients can then fetch the current state via the REST API. This mode does not send an state on attach. |
+
+<Aside data-type='usp'>
+  Scalable message fanout
+
+  Inband object updates are delivered as regular channel messages through Ably's [horizontally scalable architecture](https://ably.com/docs/platform/architecture/platform-scalability.md), so LiveObjects state changes can be distributed to any number of subscribers simultaneously.
+</Aside>
+
+<Aside data-type='important'>
+  Clients require the `channel-metadata` [capability](https://ably.com/docs/auth/capabilities.md) to receive inband objects updates.
+</Aside>
+
+To enable inband objects, use the `objects` [channel parameter](https://ably.com/docs/channels/options.md#objects) when getting a channel. Set the value to either `objects` or `notification` depending on which mode you want to use:
+
+<Code>
+
+#### Javascript
+
+```
+// When getting a channel instance
+// Enable full objects sync mode
+const channelOpts = { params: { objects: 'objects' } };
+const channel = realtime.channels.get('my-channel', channelOpts);
+
+// Or enable notification mode
+const channelOpts = { params: { objects: 'notification' } };
+const channel = realtime.channels.get('my-channel', channelOpts);
+
+// Or using setOptions on an existing channel
+await channel.setOptions({ params: { objects: 'objects' } });
+```
+</Code>
+
+## Limitations 
+
+Inband objects has some constraints to be aware of when designing your application.
+
+### Maximum object size
+
+Individual objects sent via inband objects mode cannot exceed the maximum message size limit (64KB by default). If an object's size exceeds this limit, **then no inband object messages will be received** on the connection and the sync sequence will fail with an error.
+
+Inband objects are delivered as regular channel messages, which are subject to the standard message size constraints.
+
+<Aside data-type='important'>
+  If your use case requires storing more than 64KB in a single object, you should use the [LiveObjects plugin](https://ably.com/docs/liveobjects/quickstart/javascript.md) instead of inband objects. The LiveObjects plugin supports partial object synchronization, which can efficiently handle objects of any size by streaming them in chunks.
+</Aside>
+
+To avoid hitting this limit when using inband objects:
+
+* Keep individual object sizes small by distributing data across multiple objects
+* Consider using `notification` mode and fetching large objects via the REST API on demand
+
+## Subscribe to updates 
+
+The client receives `[meta]objects` messages whenever the objects on the channel are updated.
+
+<Aside data-type='note'>
+  If there is a high rate of updates to the channel objects the inband messages are throttled. However in the case of `objects` mode, the client is guaranteed to receive a sequence of inband messages after the last change occurs so that the latest data is always available.
+</Aside>
+
+[Subscribe](https://ably.com/docs/api/realtime-sdk/channels.md#subscribe) to `[meta]objects` messages like you would any other message on the channel. For convenience, use a message name filter to only receive messages with the name `[meta]objects` in your listener:
+
+<Code>
+
+### Javascript
+
+```
+// Subscribe to [meta]objects messages
+channel.subscribe('[meta]objects', (message) => {
+  console.log("Received inband objects message:", JSON.stringify(message.data));
+});
+```
+</Code>
+
+
+## Objects mode 
+
+The `objects` mode sends the full state of all objects on the channel. When a client attaches to the channel, it immediately receives the current state. Subsequent updates are sent whenever the objects change.
+
+### Enable objects mode 
+
+Enable objects mode using the `objects` [channel parameter](https://ably.com/docs/channels/options.md#objects) with a value of `'objects'`:
+
+<Code>
+
+#### Javascript
+
+```
+  const channelOpts = { params: { objects: 'objects' } };
+  const channel = realtime.channels.get('my-channel', channelOpts);
+
+  // Subscribe to [meta]objects messages in objects mode
+  channel.subscribe('[meta]objects', (message) => {
+  const { syncId, nextCursor, object } = message.data;
+  console.log("Received object:", syncId, nextCursor, JSON.stringify(object));
+  ```
+</Code>
+
+
+### Objects message format 
+
+Inband objects messages are sent as a sequence of messages, where each message contains a snapshot of a single object on the channel. Taken together, a set of messages belonging to the same sequence describes the complete set of objects on the channel.
+
+Each inband objects message has a message `name` of `[meta]objects`.
+
+The message `data` is a JSON object with the following top-level properties:
+
+| Property | Description |
+| -------- | ----------- |
+| `syncId` | A unique ID for this sequence. All messages with the same `syncId` are part of the same sequence of messages which describes the complete set of the objects on the channel. |
+| `nextCursor` | A cursor for the next message in the sequence, or `undefined` if this is the last message in the sequence. |
+| `object` | A JSON representation of the object included in the message. |
+
+The shape of the `object` is the same as the response format of an object when listing them via the [REST API](https://ably.com/docs/liveobjects/rest-api-usage.md#fetching-objects-list-values):
+
+**Inband Counter Message**
+<Code>
+
+#### Javascript
+
+```
+  {
+    "name": "[meta]objects",
+    "data": {
+      "syncId": "1148d241",
+      "nextCursor": "root",
+      "object": {
+        "objectId": "counter:APjeaY7i_IQmrlxV5sEcR7NLTualutgS1QF3wNVJNYI@1769502401136",
+        "counter": {
+          "count": 12
+        },
+        "siteTimeserials": {
+          "cbf": "01769502451073-000@cbfpt5aQQByRKW13548557:000"
+        },
+        "tombstone": false
+      }
+    }
+  }
+  ```
+</Code>
+
+**Inband Map Message**
+
+<Code>
+
+#### Javascript
+
+```
+  {
+    "name": "[meta]objects",
+    "data": {
+      "syncId": "95ad3a9f",
+      "object": {
+        "objectId": "root",
+        "map": {
+          "semantics": 0,
+          "entries": {
+            "hello": {
+              "timeserial": "01769446125853-000@cbfpt5aQQByRKW61375059:000",
+              "data": {
+                "string": "world"
+              },
+              "tombstone": false
+            },
+            "votes": {
+              "timeserial": "01769502401144-000@cbfpt5aQQByRKW13548557:001",
+              "data": {
+                "objectId": "counter:APjeaY7i_IQmrlxV5sEcR7NLTualutgS1QF3wNVJNYI@1769502401136"
+              },
+              "tombstone": false
+            }
+          }
+        },
+        "siteTimeserials": {
+          "cbf": "01769446125853-000@cbfpt5aQQByRKW61375059:000"
+        },
+        "tombstone": false
+      }
+    }
+  }
+  ```
+</Code>
+
+## Notification mode 
+
+The `notification` mode sends a `[meta]objects` message whenever the channel objects are updated, without sending the full state data. This reduces bandwidth for use cases where clients only need to know that an operation occurred and can fetch the state on demand.
+
+Unlike `objects` mode, `notification` mode does not send an initial state when the client attaches to the channel. The first notification is sent immediately when the first object operation is received. The message contains a link to retrieve the current state via the [REST API](https://ably.com/docs/liveobjects/rest-api-usage.md) rather than the full object state.
+
+<Aside data-type='note'>
+Use notification mode when individual objects on the channel may exceed the 64 KiB [message size limit](https://ably.com/docs/liveobjects/storage.md#operation-size).
+</Aside>
+
+### Enable notification mode 
+
+Enable notification mode using the `objects` [channel parameter](https://ably.com/docs/channels/options.md#objects) with a value of `'notification'`:
+
+<Code>
+
+#### Javascript
+
+```
+const channelOpts = { params: { objects: 'notification' } };
+const channel = realtime.channels.get('my-channel', channelOpts);
+```
+</Code>
+
+<Aside data-type='note'>
+If there is a high rate of updates to the channel objects, notification messages are throttled after the first one. The client is guaranteed to receive a notification after the last change occurs.
+</Aside>
+
+### Notification message format 
+
+Each notification message has a message `name` of `[meta]objects`.
+
+The message `data` is a JSON object with the following property:
+
+| Property | Description |
+| -------- | ----------- |
+| `link`   | A relative URL path to fetch the current state of the channel object on the channel via the [REST API](https://ably.com/docs/liveobjects/rest-api-usage.md#fetch-channel-object). This can be used directly with the Ably REST client's [request](https://ably.com/docs/api/rest-sdk.md#request) method. |
+
+
+<Code>
+
+#### Javascript
+
+```
+// Subscribe to [meta]objects messages in notification mode
+channel.subscribe('[meta]objects', async (message) => {
+  const { link } = message.data;
+  console.log("Objects operation received, fetching state from:", link);
+
+  // Fetch the current state using the REST API
+  const response = await ablyREST.request('GET', link);
+  if (response.items.length > 0 ) {
+    console.log("Current state:", response.items[0]);
+  }
+});
+```
+</Code>
+
+## When to use objects or notification mode
+
+Use `notification` mode when:
+
+* You want to minimize bandwidth usage and only fetch state when needed.
+* Your application can tolerate fetching state on demand rather than receiving it immediately.
+* You have infrequent operations and don't need continuous state updates.
+
+Use `objects` mode when:
+
+* You need the full state immediately on attach.
+* You want to receive state updates in realtime without additional REST API calls.
+* Your application requires continuous synchronization of state.
+
+
+## Related Topics
+
+- [Batch operations](https://ably.com/docs/liveobjects/batch.md): Group multiple objects operations into a single channel message to apply grouped operations atomically and improve performance.
+- [Lifecycle events](https://ably.com/docs/liveobjects/lifecycle.md): Understand lifecycle events for Objects, LiveMap and LiveCounter to track synchronization events and object deletions.
+- [Typing](https://ably.com/docs/liveobjects/typing.md): Type objects on a channel for type safety and code autocompletion.
+- [Object storage](https://ably.com/docs/liveobjects/storage.md): Learn about LiveObjects object storage.
+- [Using the REST SDK](https://ably.com/docs/liveobjects/rest-sdk-usage.md): Learn how to work with Ably LiveObjects using the REST SDK
+- [Using the REST API](https://ably.com/docs/liveobjects/rest-api-usage.md): Learn how to work with Ably LiveObjects using the REST API
+
+## Documentation Index
+
+To discover additional Ably documentation:
+
+1. Fetch [llms.txt](https://ably.com/llms.txt) for the canonical list of available pages.
+2. Identify relevant URLs from that index.
+3. Fetch target pages as needed.
+
+Avoid using assumed or outdated documentation paths.

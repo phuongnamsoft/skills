@@ -1,0 +1,624 @@
+# LiveCounter
+
+<If lang="javascript">
+  <Aside data-type='note'>
+  **Building with LiveObjects?** Help shape its future by [sharing your use case](https://44qpp.share.hsforms.com/2fZobHQA1ToyRfB9xqZYQmQ).
+  </Aside>
+</If>
+<If lang="swift">
+  <Aside data-type='experimental'>
+  LiveObjects Swift is currently Experimental. Its features are still in development and subject to rapid change.
+
+  **Building with LiveObjects?** Help shape its future by [sharing your use case](https://44qpp.share.hsforms.com/2fZobHQA1ToyRfB9xqZYQmQ).
+  </Aside>
+</If>
+<If lang="java">
+  <Aside data-type='experimental'>
+  LiveObjects Java is currently Experimental. Its features are still in development and subject to rapid change.
+
+  **Building with LiveObjects?** Help shape its future by [sharing your use case](https://44qpp.share.hsforms.com/2fZobHQA1ToyRfB9xqZYQmQ).
+  </Aside>
+</If>
+
+`LiveCounter` is a synchronized numerical counter that supports increment and decrement operations. It ensures that all updates are correctly applied and synchronized across clients in realtime, preventing inconsistencies when multiple clients modify the counter value simultaneously.
+
+<If lang="javascript">
+
+You interact with `LiveCounter` through a [PathObject](https://ably.com/docs/liveobjects/concepts/path-object.md) or by obtaining a specific [Instance](https://ably.com/docs/liveobjects/concepts/instance.md).
+
+## Create a counter 
+
+Create a `LiveCounter` using the `LiveCounter.create()` static method and assign it to a path:
+
+<Code>
+
+### Javascript
+
+```
+import { LiveCounter } from 'ably/liveobjects';
+
+// Create a counter with initial value 0
+await myObject.set('visits', LiveCounter.create(0));
+
+// Create a counter with initial value 100
+await myObject.set('score', LiveCounter.create(100));
+
+// Create a counter without specifying initial value (defaults to 0)
+await myObject.set('clicks', LiveCounter.create());
+```
+</Code>
+
+`LiveCounter.create()` returns a value type that describes the initial value for a new counter. The actual object is created when assigned to a path. Each assignment creates a distinct object with its own unique ID:
+
+<Code>
+
+### Javascript
+
+```
+const counterValue = LiveCounter.create(0);
+
+// Each assignment creates a different object
+await myObject.set('counter1', counterValue);
+await myObject.set('counter2', counterValue);
+
+// counter1 and counter2 are different objects with different IDs
+const id1 = myObject.get('counter1').instance()?.id();
+const id2 = myObject.get('counter2').instance()?.id();
+console.log(id1 === id2); // false
+```
+</Code>
+
+## Get counter value 
+
+Access a `LiveCounter` through a [PathObject](https://ably.com/docs/liveobjects/concepts/path-object.md) for path-based operations, or obtain a specific [Instance](https://ably.com/docs/liveobjects/concepts/instance.md) to work with the underlying object directly. Use the `value()` method to get the value of the `LiveCounter`:
+
+<Code>
+
+### Javascript
+
+```
+const myObject = await channel.object.get();
+
+// PathObject access: path-based operations that resolve at runtime
+const visits = myObject.get('visits');
+console.log(visits.value()); // e.g. 5
+
+// Instance access: reference to a specific counter object
+const visitsInstance = myObject.get('visits').instance();
+console.log(visitsInstance?.value()); e.g. 5
+```
+</Code>
+
+<Aside data-type="note">
+Calling `value()` on a `PathObject` may return `undefined` if a primitive value or `LiveCounter` instance cannot be found at that path. Calling `value()` on an `Instance` returns `undefined` if the instance is not a primitive or `LiveCounter`. Learn more about reading values on a [`PathObject`](https://ably.com/docs/liveobjects/concepts/path-object.md#read-values) and [`Instance`](https://ably.com/docs/liveobjects/concepts/instance.md#read-values).
+</Aside>
+
+
+## Get compact object 
+
+Get a numeric representation of the counter using the `compact()` or `compactJson()` methods. These methods return the same result as `value()`:
+
+<Code>
+
+### Javascript
+
+```
+// Get a PathObject to a LiveCounter stored in 'visits'
+const visits = myObject.get('visits');
+console.log(visits.compact());  // e.g. 5
+
+// Get the Instance of a LiveCounter stored in 'visits'
+const visitsInstance = myObject.get('visits').instance();
+console.log(visitsInstance?.compact());  // e.g. 5
+```
+</Code>
+
+When calling these methods on a `LiveMap`, nested `LiveCounter` objects are included as a `number`:
+
+<Code>
+
+### Javascript
+
+```
+// Get a PathObject to a LiveMap stored in 'stats'
+const stats = myObject.get('stats');
+console.log(stats.compact());  // e.g. { visits: 5 }
+
+// Get the Instance of a LiveMap stored in 'stats'
+const visitsInstance = myObject.get('stats').instance();
+console.log(visitsInstance?.compact());  // e.g. 5
+```
+</Code>
+
+<Aside data-type="further-reading">
+Learn more about obtaining compact objects on a [`PathObject`](https://ably.com/docs/liveobjects/concepts/path-object.md#get-a-compact-object) or an [`Instance`](https://ably.com/docs/liveobjects/concepts/instance.md#get-a-compact-object).
+</Aside>
+
+## Increment a counter 
+
+Increment the value of a `LiveCounter` using the `increment()` method. You can specify an amount to increment by, or use the default increment of 1:
+
+<Code>
+
+### Javascript
+
+```
+// PathObject: increment counter at path
+await myObject.get('visits').increment(5);  // increment by 5
+await myObject.get('visits').increment();   // increment by 1 (default)
+
+// Instance: increment specific counter instance
+const visitsInstance = myObject.get('visits').instance();
+await visitsInstance?.increment(5);   // increment by 5
+await visitsInstance?.increment();    // increment by 1 (default)
+```
+</Code>
+
+## Decrement a counter 
+
+Decrement the value of a `LiveCounter` using the `decrement()` method. You can specify an amount to decrement by, or use the default decrement of 1:
+
+<Code>
+
+### Javascript
+
+```
+// PathObject: decrement counter at path
+await myObject.get('visits').decrement(5);  // decrement by 5
+await myObject.get('visits').decrement();   // decrement by 1 (default)
+
+// Instance: decrement specific counter instance
+const visitsInstance = myObject.get('visits').instance();
+await visitsInstance?.decrement(5);   // decrement by 5
+await visitsInstance?.decrement();    // decrement by 1 (default)
+```
+</Code>
+
+## Batch multiple operations 
+
+Group multiple counter operations into a single atomic message using the `batch()` method. All operations within the batch are sent as one logical unit which succeed or fail together:
+
+<Code>
+
+### Javascript
+
+```
+// PathObject: batch operations on counter at path
+await myObject.get('visits').batch((ctx) => {
+  ctx.increment(5);
+  ctx.increment(3);
+  ctx.decrement(2);
+});
+
+// Instance: batch operations on specific counter instance
+const visitsInstance = myObject.get('visits').instance();
+await visitsInstance?.batch((ctx) => {
+  ctx.increment(10);
+  ctx.decrement(5);
+});
+```
+</Code>
+
+<Aside data-type="further-reading">
+Learn more about [Batch operations](https://ably.com/docs/liveobjects/batch.md).
+</Aside>
+
+## Subscribe to updates 
+
+Subscribe to `LiveCounter` updates to receive realtime notifications when the value changes.
+
+`PathObject` subscriptions observe a location and automatically track changes even if the `LiveCounter` instance at that path is replaced. `Instance` subscriptions track a specific `LiveCounter` instance, following it even if it moves in the channel object.
+
+<Aside data-type="further-reading">
+Learn more about [`PathObject`](https://ably.com/docs/liveobjects/concepts/path-object.md#subscribe) and [`Instance`](https://ably.com/docs/liveobjects/concepts/instance.md#subscribe) subscriptions.
+</Aside>
+
+<Code>
+
+### Javascript
+
+```
+// PathObject: observe location - tracks changes even if counter instance is replaced
+const visits = myObject.get('visits');
+const { unsubscribe } = visits.subscribe(() => {
+  console.log('Visits:', visits.value());
+});
+
+// Later, stop listening to changes
+unsubscribe();
+
+// Instance: track specific counter instance - follows it even if moved in object tree
+const visitsInstance = myObject.get('visits').instance();
+if (visitsInstance) {
+  const { unsubscribe } = visitsInstance.subscribe(() => {
+    console.log('Visits:', visitsInstance.value());
+  });
+
+  // Later, stop listening to changes
+  unsubscribe();
+}
+```
+</Code>
+
+Alternatively, use the `subscribeIterator()` method for an async iterator syntax:
+
+<Code>
+
+### Javascript
+
+```
+// PathObject: observe location - tracks changes even if counter instance is replaced
+const visits = myObject.get('visits');
+for await (const _ of visits.subscribeIterator()) {
+  console.log('Visits:', visits.value());
+
+  if (someCondition) {
+    break; // Unsubscribes
+  }
+}
+
+// Instance: track specific counter instance - follows it even if moved in object tree
+const visitsInstance = myObject.get('visits').instance();
+if (visitsInstance) {
+  for await (const _ of visitsInstance.subscribeIterator()) {
+    console.log('Visits:', visitsInstance.value());
+
+    if (someCondition) {
+      break; // Unsubscribes
+    }
+  }
+}
+```
+</Code>
+
+</If>
+
+<If lang="swift,java">
+
+## Create LiveCounter 
+
+A `LiveCounter` instance can be created using the `channel.objects.createCounter()` method. It must be stored inside a `LiveMap` object that is reachable from the [root object](https://ably.com/docs/liveobjects/concepts/objects.md#root-object).
+
+`channel.objects.createCounter()` is asynchronous, as the client sends the create operation to the Ably system and waits for an acknowledgment of the successful counter creation.
+
+<Aside data-type='note'>
+Note that you need to first [attach to the channel](https://ably.com/docs/liveobjects/quickstart/javascript.md#step-3) before creating a new `LiveCounter` instance, as this operation requires sending a message to the Ably system.
+</Aside>
+
+<Code>
+
+### Swift
+
+```
+let counter = try await channel.objects.createCounter()
+try await root.set("counter", .liveCounter(counter))
+```
+
+### Java
+
+```
+LiveCounter counter = channel.getObjects().createCounter();
+root.set("counter", LiveMapValue.of(counter));
+```
+</Code>
+
+Optionally, you can specify an initial value when creating the counter:
+
+<Code>
+
+### Swift
+
+```
+let counter = try await channel.objects.createCounter(count: 100) // Counter starts at 100
+```
+
+### Java
+
+```
+LiveCounter counter = channel.getObjects().createCounter(100); // Counter starts at 100
+```
+</Code>
+
+## Get counter value 
+
+Get the current value of a counter using the `LiveCounter.value()` method:
+
+<Code>
+
+### Swift
+
+```
+print("Counter value: \(try counter.value)")
+```
+
+### Java
+
+```
+System.out.println("Counter value: " + counter.value());
+```
+</Code>
+
+## Subscribe to data updates 
+
+You can subscribe to data updates on a counter to receive realtime changes made by you or other clients.
+
+<If lang="swift,java">
+<Aside data-type='note'>
+`LiveCounter` mutation methods send operations to the Ably system and apply changes locally as soon as the operations are acknowledged. When a mutation method returns, the operation has been applied and you can immediately read the updated state. You will also be notified via subscription when the counter is updated.
+</Aside>
+</If>
+
+Subscribe to data updates on a counter using the `LiveCounter.subscribe()` method:
+
+<Code>
+
+### Swift
+
+```
+try counter.subscribe { update, _ in
+    do {
+        print("Counter updated: \(try counter.value)")
+    } catch {
+        // Error handling of counter.value omitted for brevity
+    }
+    print("Update details: \(update)")
+}
+```
+
+### Java
+
+```
+counter.subscribe((counterUpdate) -> {
+    System.out.println("Counter updated: " + counter.value());
+    System.out.println("Update details: " + counterUpdate.getUpdate());
+});
+```
+</Code>
+
+The update object provides details about the change, such as the amount by which the counter value was changed.
+
+It may also include the client ID of the client that made the change, if the change can be attributed to a specific client. For example, the client ID may be missing if the update was triggered by data resynchronization after a disconnection and the change occurred while the client was offline.
+
+Example structure of an update object when the counter was incremented by 5 by a client with the ID `my-client`:
+
+<Code>
+
+### Json
+
+```
+{
+  "update": {
+    "amount": 5
+  },
+  "clientId": "my-client"
+}
+```
+</Code>
+
+Or decremented by 10:
+
+<Code>
+
+### Json
+
+```
+{
+  "amount": -10
+}
+```
+</Code>
+
+### Unsubscribe from data updates 
+
+Use the `unsubscribe()` function returned in the `subscribe()` response to remove a counter update listener:
+
+<Code>
+
+#### Swift
+
+```
+// Initial subscription
+let subscriptionResponse = try counter.subscribe { _, _ in
+    do {
+        print(try counter.value)
+    } catch {
+        // Error handling of counter.value omitted for brevity
+    }
+}
+// To remove the listener
+subscriptionResponse.unsubscribe()
+```
+
+#### Java
+
+```
+// Initial subscription
+ObjectsSubscription subscription = counter.subscribe((counterUpdate) ->
+    System.out.println(counter.value())
+);
+// To remove the listener
+subscription.unsubscribe();
+```
+</Code>
+
+<If lang="swift">
+To remove a counter update listener from _inside_ the listener function, you can call `unsubscribe()` on the subscription response that is passed as the second argument to the listener function:
+
+<Code>
+
+#### Swift
+
+```
+try counter.subscribe { _, subscriptionResponse in
+    // Remove the listener so that this callback
+    // no longer gets called
+    subscriptionResponse.unsubscribe()
+}
+```
+</Code>
+</If>
+
+<If lang="java">
+Use the `LiveCounter.unsubscribe()` method to deregister a provided listener:
+
+<Code>
+
+#### Java
+
+```
+// Initial subscription
+LiveCounter.Listener listener = (counterUpdate) ->
+    System.out.println(counter.value());
+counter.subscribe(listener);
+// To remove the listener
+counter.unsubscribe(listener);
+```
+</Code>
+</If>
+
+Use the `LiveCounter.unsubscribeAll()` method to deregister all counter update listeners:
+
+<Code>
+
+#### Swift
+
+```
+counter.unsubscribeAll();
+```
+
+#### Java
+
+```
+counter.unsubscribeAll();
+```
+</Code>
+
+## Update LiveCounter 
+
+Update the counter value by calling <If lang="java">`LiveCounter.increment()` or `LiveCounter.decrement()`</If><If lang="swift">`LiveCounter.increment(amount:)` or `LiveCounter.decrement(amount:)`</If>. These operations are synchronized across all clients and trigger data subscription callbacks for the counter, including on the client making the request.
+
+These operations are asynchronous, as the client sends the corresponding update operation to the Ably system and waits for acknowledgment of the successful counter update.
+
+<Code>
+
+### Swift
+
+```
+try await counter.increment(amount: 5) // Increase value by 5
+try await counter.decrement(amount: 2) // Decrease value by 2
+```
+
+### Java
+
+```
+counter.increment(5); // Increase value by 5
+counter.decrement(2); // Decrease value by 2
+```
+</Code>
+
+## Subscribe to lifecycle events 
+
+Subscribe to lifecycle events on a counter using the <If lang="java">`LiveCounter.on()`</If><If lang="swift">`LiveCounter.on(event:callback:)`</If> method:
+
+<Code>
+
+### Swift
+
+```
+counter.on(event: .deleted) { _ in
+  print("Counter has been deleted")
+}
+```
+
+### Java
+
+```
+counter.on(ObjectLifecycleEvent.DELETED, (lifecycleEvent) -> {
+    System.out.println("Counter has been deleted");
+});
+```
+</Code>
+
+Read more about [objects lifecycle events](https://ably.com/docs/liveobjects/lifecycle.md#objects).
+
+### Unsubscribe from lifecycle events 
+
+Use the `off()` function returned in the `on()` response to remove a lifecycle event listener:
+
+<Code>
+
+#### Swift
+
+```
+// Initial subscription
+let eventResponse = counter.on(event: .deleted) { _ in
+  print("Counter deleted")
+}
+// To remove the listener
+eventResponse.off()
+```
+
+#### Java
+
+```
+// Initial subscription
+ObjectsSubscription subscription = counter.on(ObjectLifecycleEvent.DELETED, (lifecycleEvent) ->
+    System.out.println("Counter deleted")
+);
+// To remove the listener
+subscription.unsubscribe();
+```
+</Code>
+
+<If lang="java">
+Use the `LiveCounter.off()` method to deregister a provided lifecycle event listener:
+
+<Code>
+
+#### Java
+
+```
+// Initial subscription
+ObjectLifecycleChange.Listener listener = (lifecycleEvent) ->
+    System.out.println("Counter deleted");
+counter.on(ObjectLifecycleEvent.DELETED, listener);
+// To remove the listener
+listener.unsubscribe()
+// Alternatively, remove the shared listener from all event registrations
+counter.off(listener);
+```
+</Code>
+</If>
+
+Use the `LiveCounter.offAll()` method to deregister all lifecycle event listeners:
+
+<Code>
+
+#### Swift
+
+```
+counter.offAll()
+```
+
+#### Java
+
+```
+counter.offAll();
+```
+</Code>
+
+</If>
+
+## Related Topics
+
+- [LiveMap](https://ably.com/docs/liveobjects/map.md): Create, update and receive updates for a key/value data structure that synchronizes state across clients in realtime.
+
+## Documentation Index
+
+To discover additional Ably documentation:
+
+1. Fetch [llms.txt](https://ably.com/llms.txt) for the canonical list of available pages.
+2. Identify relevant URLs from that index.
+3. Fetch target pages as needed.
+
+Avoid using assumed or outdated documentation paths.

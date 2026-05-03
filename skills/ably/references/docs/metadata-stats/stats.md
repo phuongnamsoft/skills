@@ -1,0 +1,786 @@
+# Statistics
+
+Ably provides statistics at one minute intervals. They are aggregated by minute, hour, day and month. The most recent statistics can be delayed by up to six seconds.
+
+Statistics are available as:
+
+* [Account statistics](#account) covering all applications in your account
+* [App statistics](#app) for each individual application
+
+<Aside data-type='usp'>
+Over 500 billion messages delivered monthly.
+
+Ably delivers over 500 billion messages monthly, demonstrating [large-scale throughput capability](https://ably.com/docs/platform/architecture/platform-scalability.md#monitoring-and-auto-scaling).
+</Aside>
+
+## Account statistics 
+
+Account statistics aggregate metrics from all applications in your account with additional [account-only metrics](#account-only) relating to peak rates monitored and enforced at an account level.
+
+### Account statistics via API 
+
+You can retrieve account statistics using the [Control API](https://ably.com/docs/platform/account/control-api.md) by making a call to the `accounts` endpoint using your `accountId` and `accessToken`. For example, to retrieve the last two minutes of account statistics:
+
+<Code>
+
+#### Shell
+
+```
+curl --request GET \
+  --url 'https://control.ably.net/v1/accounts/${ACCOUNT_ID}/stats?unit=minute&limit=2' \
+  --header 'Authorization: Bearer ${ACCESS_TOKEN}' \
+  --header 'Content-Type: application/json'
+```
+</Code>
+
+This endpoint returns a [statistics response type](#payload) including [account-only metrics](#account-only).
+
+<Aside data-type='note'>
+  To obtain your `ACCOUNT_ID`, you can use `/me` Control API endpoint to find your `ACCOUNT_ID`, or alternatively find it in the [Settings](https://ably.com/accounts/any/edit) page of your account dashboard:
+</Aside>
+
+<Code>
+
+#### Shell
+
+```
+curl 'https://control.ably.net/v1/me' \
+--header 'Authorization: Bearer ${ACCESS_TOKEN}'
+```
+</Code>
+
+### Account statistics from the dashboard 
+
+Your account statistics are available as graphs, tabular data, and for download from your [account dashboard](https://ably.com/accounts/any/usage_history).
+
+## App statistics 
+
+App statistics provide metrics scoped to each application. You can retrieve account statistics:
+
+* Via the [Control API](#app-control)
+* Programmatically using the [Pub/Sub SDK](#app-sdk)
+* In realtime by subscribing to a [meta channel](#app-meta)
+* From your [application dashboard](#app-dashboard)
+
+### App statistics via Control API 
+
+You can retrieve app statistics using the [Control API](https://ably.com/docs/platform/account/control-api.md) by making a call to the `apps` endpoint using your `APP_ID` and `ACCESS_TOKEN`:
+
+<Code>
+
+#### Shell
+
+```
+curl 'https://control.ably.net/v1/apps/${APP_ID}/stats' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer ${ACCESS_TOKEN}' \
+--data-raw '{
+    "unit": "hour",
+    "limit": 1
+}'
+```
+</Code>
+
+This endpoint returns a [statistics response type](#payload).
+
+<Aside data-type='note'>
+    The `APP_ID` can be found in the [Settings](https://ably.com/accounts/any/apps/any/edit) tab of an application within your dashboard.
+</Aside>
+
+### App statistics via SDK 
+
+App-level statistics are also available programmatically using an [Ably SDK](https://ably.com/docs/sdks.md) at one minute intervals, or aggregated up to the hour, day or month. Whilst it is possible to obtain statistics via the SDKs, this API is not actively maintained and may be deprecated in future. We recommend using [app-level stats via the Control API](#app-control).
+
+The following is an example of querying app-level statistics using the Ably SDK [`stats` method](https://ably.com/docs/api/rest-sdk/statistics.md).
+
+<Code>
+
+#### Realtime Javascript
+
+```
+const realtime = new Ably.Realtime('your-api-key');
+const resultPage = await realtime.stats({ unit: 'hour' });
+console.log(resultPage.items[0]);
+```
+
+#### Realtime Nodejs
+
+```
+const realtime = new Ably.Realtime('your-api-key');
+const resultPage = await realtime.stats({ unit: 'hour' });
+console.log(resultPage.items[0]);
+```
+
+#### Realtime Ruby
+
+```
+  realtime = Ably::Realtime.new('your-api-key')
+  realtime.stats(unit: 'hour') do |result_page|
+    this_hour = result_page.items.first
+    puts this_hour # => #<Ably::Models::Stat:…
+  end
+```
+
+#### Realtime Python
+
+```
+  realtime = AblyRealtime('your-api-key')
+  result_page = await realtime.stats(unit='hour')
+  this_hour = result_page.items[0]
+  print(this_hour)
+```
+
+#### Realtime Java
+
+```
+  AblyRealtime realtime = new AblyRealtime("your-api-key");
+  Param[] options = new Param[]{ new Param("unit", "hour") };
+  PaginatedResult<Stats> results = realtime.stats(options);
+  Stats[] stats = results.items();
+  if (stats.length > 0) {
+      Stats thisHour = stats[0];
+      System.out.println("Published this hour: " + thisHour.inbound.all.all.count);
+  } else {
+      System.out.println("No stats data available for the current hour.");
+  }
+```
+
+#### Realtime Csharp
+
+```
+  AblyRealtime realtime = new AblyRealtime("your-api-key");
+  StatsRequestParams query = new StatsRequestParams() { Unit = StatsIntervalGranularity.Hour };
+  PaginatedResult<Stats> results = await realtime.StatsAsync(query);
+  Stats thisHour = results.Items[0];
+  Console.WriteLine("Published this hour " + thisHour.Inbound.All.All);
+```
+
+#### Realtime Objc
+
+```
+ARTRealtime *realtime = [[ARTRealtime alloc] initWithKey:@"your-api-key"];
+ARTStatsQuery *query = [[ARTStatsQuery alloc] init];
+query.unit = ARTStatsGranularityHour;
+[realtime stats:query callback:^(ARTPaginatedResult<ARTStats *> *result, ARTErrorInfo *error) {
+    ARTStats *thisHour = result.items[0];
+    NSLog(@"Published this hour %lu", thisHour.inbound.all.all.count);
+} error:nil];
+```
+
+#### Realtime Swift
+
+```
+let realtime = ARTRealtime(key: "your-api-key")
+let query = ARTStatsQuery()
+query.unit = .Hour
+try! realtime.stats(query) { results, error in
+    let thisHour = results!.items[0]
+    print("Published this hour \(thisHour.inbound.all.all.count)")
+}
+```
+
+#### Rest Javascript
+
+```
+const realtime = new Ably.Rest('your-api-key');
+const resultPage = await realtime.stats({ unit: 'hour' });
+console.log(resultPage.items[0]);
+```
+
+#### Rest Nodejs
+
+```
+const realtime = new Ably.Rest('your-api-key');
+const resultPage = await realtime.stats({ unit: 'hour' });
+console.log(resultPage.items[0]);
+```
+
+#### Rest Ruby
+
+```
+  rest = Ably::Rest.new('your-api-key')
+  result_page = rest.stats(unit: 'hour')
+  this_hour = result_page.items.first
+  puts this_hour # => #<Ably::Models::Stat:…
+```
+
+#### Rest Python
+
+```
+  rest = AblyRest('your-api-key')
+  result_page = await rest.stats(unit='hour')
+  this_hour = result_page.items[0]
+  print(this_hour)
+```
+
+#### Rest Php
+
+```
+  $rest = new Ably\AblyRest('your-api-key');
+  $resultPage = $rest->stats(['unit' => 'hour']);
+  $thisHour = $resultPage->items[0];
+  echo('Published this hour ' . $thisHour->inbound->all->all->count);
+```
+
+#### Rest Java
+
+```
+  AblyRest rest = new AblyRest("your-api-key");
+  Param[] options = new Param[]{ new Param("unit", "hour") };
+  PaginatedResult<Stats> results = rest.stats(options);
+  Stats[] stats = results.items();
+  if (stats.length > 0) {
+      Stats thisHour = stats[0];
+      System.out.println("Published this hour: " + thisHour.inbound.all.all.count);
+  } else {
+      System.out.println("No stats data available for the current hour.");
+  }
+```
+
+#### Rest Csharp
+
+```
+  AblyRest rest = new AblyRest("your-api-key");
+  StatsRequestParams query = new StatsRequestParams() { Unit = StatsIntervalGranularity.Hour };
+  PaginatedResult<Stats> results = await rest.StatsAsync(query);
+  Stats thisHour = results.Items[0];
+  Console.WriteLine("Published this hour " + thisHour.Inbound.All.All.Count);
+```
+
+#### Rest Objc
+
+```
+ARTRest *rest = [[ARTRest alloc] initWithKey:@"your-api-key"];
+ARTStatsQuery *query = [[ARTStatsQuery alloc] init];
+query.unit = ARTStatsGranularityHour;
+[rest stats:query callback:^(ARTPaginatedResult<ARTStats *> *result, ARTErrorInfo *error) {
+    ARTStats *thisHour = result.items[0];
+    NSLog(@"Published this hour %lu", thisHour.inbound.all.all.count);
+} error:nil];
+```
+
+#### Rest Swift
+
+```
+let rest = ARTRest(key: "your-api-key")
+let query = ARTStatsQuery()
+query.unit = .Hour
+try! rest.stats(query) { results, error in
+    let thisHour = results!.items[0]
+    print("Published this hour \(thisHour.inbound.all.all.count)")
+}
+```
+
+#### Rest Go
+
+```
+rest, err := ably.NewREST(ably.WithKey("your-api-key"))
+query := &ably.PaginateParams{
+  ScopeParams: ably.ScopeParams{
+    Unit:  'hour',
+  },
+}
+page, err := rest.Stats(query)
+if err != nil {
+  // Error
+}
+fmt.Println("Published this hour: %d", len(page2.Items[0]))
+```
+</Code>
+
+### Subscribe to app statistics 
+
+You can subscribe to app statistics using the [`[meta]stats:minute` metachannel](/docs/metadata-stats/metadata/subscribe#stats). Events are published at one minute intervals and contain the statistics for the previous minute.
+
+The following is an example of subscribing to the `[meta]stats:minute` channel:
+
+<Code>
+
+#### Realtime Javascript
+
+```
+const channel = ably.channels.get("[meta]stats:minute");
+
+await channel.subscribe('update', event => {
+  console.log(JSON.stringify(event, undefined, 2));
+});
+```
+
+#### Realtime Python
+
+```
+channel = ably.channels.get('[meta]stats:minute')
+
+def event_listener(event):
+    print(json.dumps(event, indent=2))
+
+await channel.subscribe('update', event_listener)
+```
+
+#### Realtime Go
+
+```
+channel := realtime.Channels.Get("[meta]stats:minute")
+
+channel.Subscribe(context.Background(), "update", func(msg *ably.Message) {
+  eventJSON, err := json.MarshalIndent(msg, "", "  ")
+  if err != nil {
+    log.Printf("Failed to marshal event to JSON: %v", err)
+    return
+  }
+  fmt.Println(string(eventJSON))
+})
+```
+
+#### Realtime Flutter
+
+```
+final channel = realtime.channels.get('[meta]stats:minute');
+channel.subscribe(name: 'update').listen((ably.Message message) {
+  print(message);
+});
+```
+
+#### Realtime Java
+
+```
+Channel channel = ably.channels.get("[meta]stats:minute");
+
+// Subscribe to the channel for the specific event name "update"
+channel.subscribe("update", new Channel.MessageListener() {
+    @Override
+    public void onMessage(Message msg) {
+        Gson gson = new GsonBuilder().setPrettyPrinting().create();
+        String json = gson.toJson(msg);
+        System.out.println(json);
+    }
+});
+```
+</Code>
+
+### App statistics from the dashboard 
+
+App statistics are available as graphs, tabular data, and for download from each [application dashboard](https://ably.com/accounts/any/apps/any) in your account.
+
+## Statistics response 
+
+Statistic API and SDK requests return an array of [Statistics entry types](#metrics).
+
+An example simplified response with one stats entry is shown below:
+
+<Code>
+
+### Json
+
+```
+[
+  {
+    entries: {
+      'messages.all.all.count': 245,
+      'messages.all.all.data': 58654,
+      'messages.all.all.uncompressedData': 58654,
+      'messages.all.all.billableCount': 245,
+      'messages.all.messages.count': 245,
+      'messages.all.messages.data': 58654,
+      'messages.all.messages.uncompressedData': 58654,
+      'messages.all.messages.billableCount': 245,
+      'messages.inbound.realtime.all.count': 145,
+      'messages.inbound.realtime.all.data': 29127,
+      'messages.inbound.realtime.all.uncompressedData': 29127,
+      'messages.inbound.realtime.messages.count': 145,
+      ...
+    },
+    schema: 'https://schemas.ably.com/json/app-stats-0.0.5.json',
+    appId: '<appId>',
+    inProgress: '2025-01-20:15:11',
+    unit: 'hour',
+    intervalId: '2025-01-20:15'
+  }
+]
+```
+</Code>
+
+<Aside data-type='note'>
+    Each [statistics entry type](#metrics) is "sparse" to reduce the size of the JSON and improve performance. That is, if a metric is empty, or contains only zero values then the metric will be omitted completely from the response, thus producing a sparsely populated response with only values that include a metric.
+</Aside>
+
+## Statistics entry type 
+
+The following metadata is returned for each entry:
+
+| Property | Description |
+| --- | --- |
+| appId | The ID of the Ably application the statistics are for. Only present when querying app statistics. |
+| accountId | The ID of the Ably account the statistics are for. Only present when querying account statistics. |
+| intervalId | Start time for the stats entry. Format is `yyyy-mm-dd:hh:mm` for `unit=minute`, and `yyyy-mm-dd:hh` for `unit=hour,day,month`. |
+| unit | Unit of time that the stats entry covers. One of `minute`, `hour`, `day` or `month`. |
+| schema | URI of the stats schema. |
+| inProgress | The last sub-interval included in this entry in the format `yyyy-mm-dd:hh:mm:ss`, else undefined. For entries that are still in progress, such as the current month. |
+
+### All messages 
+
+All messages metrics include all messages types, such as those sent and received by Ably and clients, messages delivered via integrations and push notifications delivered to devices.
+
+Failed vs. Refused messages:
+- Failed messages are those that did not succeed for reasons other than Ably actively rejecting them, such as external integration target rejections or Ably service issues.
+- Refused messages are those that Ably actively chose to reject, typically due to rate limiting, malformed messages, or insufficient client permissions.
+
+| Metric | Description |
+| --- | --- |
+| `messages.all.all.count` | Total number of messages that were successfully received and sent by Ably, summed over all message types and transports. |
+| `messages.all.all.billableCount` | Total number of billable messages that were successfully received and sent by Ably, summed over all message types and transports. |
+| `messages.all.all.data` | Total data in messages successfully received and sent by Ably, summed over all message types and transports. |
+| `messages.all.all.uncompressedData` | Total data in messages successfully received and sent by Ably, excluding savings provided by delta compression. |
+| `messages.all.all.failed` | Total number of messages that failed. These are messages which did not succeed for some reason other than Ably explicitly refusing them, such as they were rejected by an external integration target, or a service issue on Ably's side. |
+| `messages.all.all.refused` | Total number of messages that were refused by Ably. For example, due to [rate limiting](https://ably.com/docs/platform/pricing/limits.md), malformed messages, or incorrect client permissions.|
+| `messages.all.messages.count` | Total message count, excluding presence and object messages. |
+| `messages.all.messages.billableCount` | Total billable message count, excluding presence and object messages. |
+| `messages.all.messages.data` | Total message size, excluding presence and object messages. |
+| `messages.all.messages.uncompressedData` | Total number of messages that failed. These are messages which did not succeed for some reason other than Ably explicitly refusing them, such as they were rejected by an external integration target, or a service issue on Ably's side. |
+| `messages.all.messages.failed` | Total number of messages excluding presence and object messages that failed. These are messages which did not succeed for some reason other than Ably explicitly refusing them, such as they were rejected by an external integration target, or a service issue on Ably's side. |
+| `messages.all.messages.refused` | Total number of messages excluding presence and object messages that were refused by Ably. For example, due to [rate limiting](https://ably.com/docs/platform/pricing/limits.md), malformed messages, or incorrect client permissions. |
+| `messages.all.presence.count` | Total presence message count. |
+| `messages.all.presence.billableCount` | Total billable presence message count. |
+| `messages.all.presence.data` | Total presence message size. |
+| `messages.all.presence.uncompressedData` | Total uncompressed presence message size, excluding delta compression. |
+| `messages.all.objects.count` | Total objects message count. |
+| `messages.all.objects.billableCount` | Total billable objects message count. |
+| `messages.all.objects.data` | Total objects message size. |
+| `messages.all.objects.uncompressedData` | Total uncompressed objects message size, excluding delta compression. |
+| `messages.all.messages.failed` | Total number of presence messages excluding presence and object messages that failed. These are messages which did not succeed for some reason other than Ably explicitly refusing them, such as they were rejected by an external integration target, or a service issue on Ably's side. |
+| `messages.all.messages.refused` | Total number of presence messages excluding presence and object messages that were refused by Ably. For example, due to [rate limiting](https://ably.com/docs/platform/pricing/limits.md), malformed messages, or incorrect client permissions. |
+
+### Inbound messages 
+
+Inbound messages metrics include those messages that are sent by clients and received inbound from those clients by Ably.
+
+| Metric | Description |
+| --- | --- |
+| **messages.inbound.realtime.all.count** | Total inbound realtime message count, received by Ably from clients. |
+| **messages.inbound.realtime.all.data** | Total inbound realtime message size, received by Ably from clients. |
+| **messages.inbound.realtime.all.uncompressedData** | Total uncompressed inbound realtime message size, excluding delta compression, received by Ably from clients. |
+| **messages.inbound.realtime.all.failed** | Total number of inbound realtime messages that failed. These are messages which did not succeed for some reason other than Ably explicitly refusing them, such as a service issue on Ably's side. |
+| **messages.inbound.realtime.all.refused** | Total number of inbound realtime messages that were refused by Ably. For example, due to [rate limiting](https://ably.com/docs/platform/pricing/limits.md), malformed messages, or incorrect client permissions. |
+| **messages.inbound.realtime.messages.count** | Total inbound realtime message count, excluding presence and object messages, received by Ably from clients. |
+| **messages.inbound.realtime.messages.data** | Total inbound realtime message size, excluding presence and object messages, received by Ably from clients. |
+| **messages.inbound.realtime.messages.uncompressedData** | Total uncompressed inbound realtime message size, received by  Ably from clients. This excludes delta compression, and presence and object messages. |
+| **messages.inbound.realtime.messages.failed** | Total number of inbound realtime messages excluding presence and object messages that failed These are messages which did not succeed for some reason other than Ably explicitly refusing them, such as they were rejected by an external integration target, or a service issue on Ably's side. |
+| **messages.inbound.realtime.messages.refused** | Total number of inbound realtime messages excluding presence and object messages that were refused by Ably. For example, due to [rate limiting](https://ably.com/docs/platform/pricing/limits.md), malformed messages, or incorrect client permissions.|
+| **messages.inbound.realtime.presence.count** | Total inbound realtime presence message count, received by Ably from clients. |
+| **messages.inbound.realtime.presence.data** | Total inbound realtime presence message size, received by Ably from clients. |
+| **messages.inbound.realtime.presence.uncompressedData** | Total uncompressed inbound realtime presence message size, excluding delta compression, received by Ably from clients. |
+| **messages.inbound.realtime.presence.failed** | Total number of inbound realtime presence messages that failed. These are messages which did not succeed for some reason other than Ably explicitly refusing them, such as a service issue on Ably's side. |
+| **messages.inbound.realtime.presence.refused** | Total number of inbound realtime presence messages that were refused by Ably. For example, due to [rate limiting](https://ably.com/docs/platform/pricing/limits.md), malformed messages, or incorrect client permissions. |
+| **messages.inbound.realtime.objects.count** | Total inbound realtime object message count, received by Ably from clients. |
+| **messages.inbound.realtime.objects.data** | Total inbound realtime object message size, received by Ably from clients. |
+| **messages.inbound.realtime.objects.uncompressedData** | Total uncompressed inbound realtime object message size received by  Ably from clients. |
+| **messages.inbound.realtime.objects.failed** | Total number of inbound realtime object messages that failed. These are messages which did not succeed for some reason other than Ably explicitly refusing them, such as a service issue on Ably's side. |
+| **messages.inbound.realtime.objects.refused** | Total number of inbound realtime object messages that were refused by Ably. For example, due to [rate limiting](https://ably.com/docs/platform/pricing/limits.md), malformed messages, or incorrect client permissions. |
+| **messages.inbound.rest.all.count** | Total inbound REST message count, received by Ably from clients. |
+| **messages.inbound.rest.all.data** | Total inbound REST message size, received by Ably from clients. |
+| **messages.inbound.rest.all.uncompressedData** | Total uncompressed inbound REST message size, excluding delta compression, received by Ably from clients. |
+| **messages.inbound.rest.all.failed** | Total number of inbound REST messages that failed. These are messages which did not succeed for some reason other than Ably explicitly refusing them, such as a service issue on Ably's side. |
+| **messages.inbound.rest.all.refused** | Total number of inbound REST messages that were refused by Ably. For example, due to [rate limiting](https://ably.com/docs/platform/pricing/limits.md), malformed messages, or incorrect client permissions. |
+| **messages.inbound.rest.messages.count** | Total inbound REST message count, excluding presence and object messages, received by Ably from clients. |
+| **messages.inbound.rest.messages.data** | Total inbound REST message size, excluding presence and object messages, received by Ably from clients. |
+| **messages.inbound.rest.messages.uncompressedData** | Total uncompressed inbound REST message size, received by Ably from clients. This excludes delta compression, and presence and object messages. |
+| **messages.inbound.rest.messages.failed** | Total number of inbound REST messages that failed. These are messages which did not succeed for some reason other than Ably explicitly refusing them, such as a service issue on Ably's side. This excludes presence and object messages. |
+| **messages.inbound.rest.messages.refused** | Total number of inbound REST messages that were refused by Ably. For example, due to [rate limiting](https://ably.com/docs/platform/pricing/limits.md), malformed messages, or incorrect client permissions. This excludes presence and object messages. |
+| **messages.inbound.rest.presence.count** | Total inbound REST presence message count, received by Ably from clients. |
+| **messages.inbound.rest.presence.data** | Total inbound REST presence message size, received by Ably from clients. |
+| **messages.inbound.rest.presence.uncompressedData** | Total uncompressed inbound REST presence message size, excluding delta compression, received by Ably from clients. |
+| **messages.inbound.rest.presence.failed** | Total number of inbound REST presence messages that failed. These are messages which did not succeed for some reason other than Ably explicitly refusing them, such as a service issue on Ably's side. |
+| **messages.inbound.rest.presence.refused** | Total number of inbound REST presence messages that were refused by Ably. For example, due to [rate limiting](https://ably.com/docs/platform/pricing/limits.md), malformed messages, or incorrect client permissions.|
+| **messages.inbound.rest.objects.count** | Total inbound REST object message count, received by Ably from clients. |
+| **messages.inbound.rest.objects.data** | Total inbound REST object message size, received by Ably from clients. |
+| **messages.inbound.rest.objects.uncompressedData** | Total uncompressed inbound REST object message size, excluding delta compression received by Ably from clients. |
+| **messages.inbound.rest.objects.failed** | Total number of inbound REST object messages that failed. These are messages which did not succeed for some reason other than Ably explicitly refusing them, such as a service issue on Ably's side. |
+| **messages.inbound.rest.objects.refused** | Total number of inbound REST object messages that were refused by Ably. For example, due to [rate limiting](https://ably.com/docs/platform/pricing/limits.md), malformed messages, or incorrect client permissions.|
+| **messages.inbound.all.all.count** | Total inbound message count, received by Ably from clients. |
+| **messages.inbound.all.all.data** | Total inbound message size, received by Ably from clients. |
+| **messages.inbound.all.all.uncompressedData** | Total uncompressed inbound message size, excluding delta compression, received by Ably from clients. |
+| **messages.inbound.all.all.failed** | Total number of inbound messages that failed. These are messages which did not succeed for some reason other than Ably explicitly refusing them, such as a service issue on Ably's side. |
+| **messages.inbound.all.all.refused** | Total number of inbound messages that were refused by Ably. For example, due to [rate limiting](https://ably.com/docs/platform/pricing/limits.md), malformed messages, or incorrect client permissions. |
+| **messages.inbound.all.messages.count** | Total inbound message count, excluding presence and object messages, received by Ably from clients. |
+| **messages.inbound.all.messages.data** | Total inbound message size, excluding presence and object messages, received by Ably from clients. |
+| **messages.inbound.all.messages.uncompressedData** | Total uncompressed inbound message size, received by Ably from clients. This excludes delta compression, and presence and object messages. |
+| **messages.inbound.all.messages.failed** | Total number of inbound messages excluding presence and object messages that failed. These are messages which did not succeed for some reason other than Ably explicitly refusing them, such as a service issue on Ably's side. |
+| **messages.inbound.all.presence.count** | Total inbound presence message count, received by Ably from clients. |
+| **messages.inbound.all.presence.data** | Total inbound presence message size, received by Ably from clients. |
+| **messages.inbound.all.presence.uncompressedData** | Total uncompressed inbound presence message size, excluding delta compression, received by Ably from clients. |
+| **messages.inbound.all.presence.failed** | Total number of inbound presence messages that failed. These are messages which did not succeed for some reason other than Ably explicitly refusing them, such as a service issue on Ably's side. |
+| **messages.inbound.all.presence.refused** | Total number of inbound presence messages that were refused by Ably. For example, due to [rate limiting](https://ably.com/docs/platform/pricing/limits.md), malformed messages, or incorrect client permissions. |
+
+### Outbound messages 
+
+Outbound message metrics include those messages that are sent outbound from Ably to either clients that subscribe or request messages (such as history requests), to [integrations](docs/integrations), or to [push notification](https://ably.com/docs/push.md) targets.
+
+| Metric | Description |
+| --- | --- |
+| **messages.outbound.realtime.all.count** | Total outbound realtime message count, sent from Ably to clients. |
+| **messages.outbound.realtime.all.billableCount** | Total billable outbound realtime message count, sent from Ably to clients. |
+| **messages.outbound.realtime.all.data** | Total outbound realtime message size, sent from Ably to clients. |
+| **messages.outbound.realtime.all.uncompressedData** | Total uncompressed outbound realtime message size, excluding delta compression, sent from Ably to clients. |
+| **messages.outbound.realtime.all.failed** | Total number of outbound realtime messages that failed. These are messages which did not succeed for some reason other than Ably rejecting them, such as rejection by an external integration target. |
+| **messages.outbound.realtime.all.refused** | Total number of outbound realtime messages that were refused by Ably. This is generally due to [rate limiting](https://ably.com/docs/platform/pricing/limits.md). |
+| **messages.outbound.realtime.messages.count** | Total outbound realtime message count, excluding presence and object messages, sent from Ably to clients. |
+| **messages.outbound.realtime.messages.billableCount** | Total billable outbound realtime message count, excluding presence and object messages, sent from Ably to clients. |
+| **messages.outbound.realtime.messages.data** | Total outbound realtime message size, excluding presence and object messages, sent from Ably to clients. |
+| **messages.outbound.realtime.messages.uncompressedData** | Total uncompressed outbound realtime message size, sent from Ably to clients. This excludes delta compression, and presence and object messages. |
+| **messages.outbound.realtime.messages.failed** | Total number of outbound realtime messages excluding presence and object messages that failed. These are messages which did not succeed for some reason other than Ably explicitly refusing them, such as a service issue on Ably's side. |
+| **messages.outbound.realtime.messages.refused** | Total number of outbound realtime messages excluding presence and object messages that were refused by Ably. This is generally due to [rate limiting](https://ably.com/docs/platform/pricing/limits.md). |
+| **messages.outbound.realtime.presence.count** | Total outbound realtime presence message count, sent from Ably to clients. |
+| **messages.outbound.realtime.presence.billableCount** | Total billable outbound realtime presence message count, sent from Ably to clients. |
+| **messages.outbound.realtime.presence.data** | Total outbound realtime presence message size, sent from Ably to clients. |
+| **messages.outbound.realtime.presence.uncompressedData** | Total uncompressed outbound realtime presence message size, excluding delta compression, sent from Ably to clients. |
+| **messages.outbound.realtime.presence.failed** | Total number of outbound realtime presence messages that failed. These are messages which did not succeed for some reason other than Ably explicitly refusing them, such as a service issue on Ably's side. |
+| **messages.outbound.realtime.presence.refused** | Total number of outbound realtime presence messages that were refused by Ably. This is generally due to [rate limiting](https://ably.com/docs/platform/pricing/limits.md). |
+| **messages.outbound.realtime.objects.count** | Total outbound realtime object message count, sent from Ably to clients. |
+| **messages.outbound.realtime.objects.billableCount** | Total billable outbound realtime object message count, sent from Ably to clients. |
+| **messages.outbound.realtime.objects.data** | Total outbound realtime object message size, sent from Ably to clients. |
+| **messages.outbound.realtime.objects.uncompressedData** | Total uncompressed outbound realtime presence message size, sent from Ably to clients. |
+| **messages.outbound.rest.all.count** | Total outbound REST message count, sent from Ably to clients. |
+| **messages.outbound.rest.all.data** | Total outbound REST message size, sent from Ably to clients. |
+| **messages.outbound.rest.all.uncompressedData** | Total uncompressed outbound REST message size, excluding delta compression, sent from Ably to clients. |
+| **messages.outbound.rest.all.refused** | Total number of messages that would have been broadcast to realtime subscribers as a result of a REST publish attempt that was refused for breaching account-wide [message rate limits](https://ably.com/docs/platform/pricing/limits.md). |
+| **messages.outbound.rest.messages.count** | Total outbound REST message count, excluding presence and object messages, sent from Ably to clients. |
+| **messages.outbound.rest.messages.data** | Total outbound REST message size, excluding presence and object messages, sent from Ably to clients. |
+| **messages.outbound.rest.messages.uncompressedData** | Total uncompressed outbound REST message size, sent from Ably to clients. This excludes delta compression, and presence and object messages. |
+| **messages.outbound.rest.messages.refused** | Total number of messages that would have been broadcast to realtime subscribers as a result of a REST publish attempt that was refused for breaching account-wide [message rate limit](https://ably.com/docs/platform/pricing/limits.md). This excludes presence and object messages. |
+| **messages.outbound.rest.presence.count** | Total outbound REST presence message count, sent from Ably to clients. |
+| **messages.outbound.rest.presence.data** | Total outbound REST presence message size, sent from Ably to clients. |
+| **messages.outbound.rest.presence.uncompressedData** | Total uncompressed outbound REST presence message size, excluding delta compression, sent from Ably to clients. |
+| **messages.outbound.rest.objects.count** | Total outbound REST object message count, sent from Ably to clients. |
+| **messages.outbound.rest.objects.data** | Total outbound REST object message size, sent from Ably to clients. |
+| **messages.outbound.rest.objects.uncompressedData** | Total uncompressed outbound REST object message size, excluding delta compression, sent from Ably to clients. |
+| **messages.outbound.rest.objects.refused** | Total number of object messages that would have been broadcast to realtime subscribers as a result of a REST publish attempt that was refused for breaching account-wide [message rate limit](https://ably.com/docs/platform/pricing/limits.md). |
+| **messages.outbound.webhook.all.count** | Total outbound webhook message count, sent from Ably to clients using webhooks. |
+| **messages.outbound.webhook.all.data** | Total outbound webhook message size, sent from Ably to clients using webhooks. |
+| **messages.outbound.webhook.all.uncompressedData** | Total uncompressed outbound webhook message size, excluding delta compression, sent from Ably to clients using webhooks. |
+| **messages.outbound.webhook.all.failed** | Total number of outbound webhook messages that failed. These are messages which did not succeed for some reason other than Ably explicitly refusing them, such as rejection by an external integration target. |
+| **messages.outbound.webhook.all.refused** | Total number of outbound webhook messages that were refused by Ably. This is generally due to [rate limiting](https://ably.com/docs/platform/pricing/limits.md). |
+| **messages.outbound.webhook.messages.count** | Total outbound webhook message count, sent from Ably to clients using webhooks. This excludes presence and object messages.|
+| **messages.outbound.webhook.messages.data** | Total outbound webhook message size, sent from Ably to clients using webhooks. This excludes presence and object messages. |
+| **messages.outbound.webhook.messages.uncompressedData** | Total uncompressed outbound webhook message size, sent from Ably to clients using webhooks. This excludes delta compression, and presence and object messages. |
+| **messages.outbound.webhook.messages.failed** | Total number of outbound webhook messages excluding presence and object messages that failed. These are messages which did not succeed for some reason other than Ably explicitly refusing them such as rejection by an external integration target. |
+| **messages.outbound.webhook.messages.refused** | Total number of outbound webhook messages excluding presence and object messages that were refused by Ably. This is generally due to [rate limiting](https://ably.com/docs/platform/pricing/limits.md). |
+| **messages.outbound.webhook.presence.count** | Total outbound webhook presence message count, sent from Ably to clients using webhooks. |
+| **messages.outbound.webhook.presence.data** | Total outbound webhook presence message size, sent from Ably to clients using webhooks. |
+| **messages.outbound.webhook.presence.uncompressedData** | Total uncompressed outbound webhook presence message size, excluding delta compression, sent from Ably to clients using webhooks. |
+| **messages.outbound.webhook.presence.failed** | Total number of outbound webhook presence messages that failed. These are messages which did not succeed for some reason other than Ably explicitly refusing them, such as rejection by an external integration target. |
+| **messages.outbound.webhook.presence.refused** | Total number of outbound webhook presence messages that were refused by Ably. This is generally due to [rate limiting](https://ably.com/docs/platform/pricing/limits.md). |
+| **messages.outbound.sharedQueue.all.count** | Total Ably Queue message count, sent from Ably to an Ably Queue using an integration rule. |
+| **messages.outbound.sharedQueue.all.data** | Total Ably Queue message size, sent from Ably to an Ably Queue using an integration rule. |
+| **messages.outbound.sharedQueue.all.uncompressedData** | Total uncompressed Ably Queue message size, excluding delta compression, sent from Ably to an Ably Queue using an integration rule. |
+| **messages.outbound.sharedQueue.all.failed** | Total number of Ably Queue messages that failed because they were rejected by RabbitMQ for some reason. |
+| **messages.outbound.sharedQueue.all.refused** | Total number of Ably Queue messages that Ably refused to send. This is generally due to [rate limiting](https://ably.com/docs/platform/pricing/limits.md). |
+| **messages.outbound.sharedQueue.messages.count** | Total Ably Queue message count, sent from Ably to an Ably Queue using an integration rule. This excludes presence and object messages. |
+| **messages.outbound.sharedQueue.messages.data** | Total Ably Queue message size, sent from Ably to an Ably Queue using an integration rule. This excludes presence and object messages. |
+| **messages.outbound.sharedQueue.messages.uncompressedData** | Total uncompressed Ably Queue message size, sent from Ably to an Ably Queue using an integration rule. This excludes delta compression, and presence and object messages. |
+| **messages.outbound.sharedQueue.messages.failed** | Total number of Ably Queue messages, excluding presence and object messages, that failed because they were rejected by RabbitMQ for some reason. |
+| **messages.outbound.sharedQueue.messages.refused** | Total number of Ably Queue messages, excluding presence and object messages, that Ably refused to send. |
+| **messages.outbound.sharedQueue.presence.count** | Total Ably Queue presence message count, sent from Ably to an Ably Queue using an integration rule. |
+| **messages.outbound.sharedQueue.presence.data** | Total Ably Queue presence message size, sent from Ably to an Ably Queue using an integration rule. |
+| **messages.outbound.sharedQueue.presence.uncompressedData** | Total uncompressed Ably Queue presence message size, excluding delta compression, sent from Ably to an Ably Queue using an integration rule. |
+| **messages.outbound.sharedQueue.presence.failed** | Total number of Ably Queue presence messages that failed because they  were rejected by RabbitMQ for some reason. |
+| **messages.outbound.sharedQueue.presence.refused** | Total number of Ably Queue presence messages that Ably refused to send. This is generally due to [rate limiting](https://ably.com/docs/platform/pricing/limits.md). |
+| **messages.outbound.externalQueue.all.count** | Total Firehose message count, sent from Ably to an external target using a Firehose integration rule. |
+| **messages.outbound.externalQueue.all.data** | Total Firehose message size, sent from Ably to an external target using a Firehose integration rule. |
+| **messages.outbound.externalQueue.all.uncompressedData** | Total uncompressed Firehose message size, excluding delta compression, sent from Ably to an external target using a Firehose integration rule. |
+| **messages.outbound.externalQueue.all.failed** | Total number of Firehose messages that failed because they were rejected by the external integration target for some reason. |
+| **messages.outbound.externalQueue.all.refused** | Total number of Firehose messages that Ably refused to send. This is generally due to [rate limiting](https://ably.com/docs/platform/pricing/limits.md). |
+| **messages.outbound.externalQueue.messages.count** | Total Firehose message count, sent from Ably to an external target using a Firehose integration rule. This excludes presence and object messages. |
+| **messages.outbound.externalQueue.messages.data** | Total Firehose message size, sent from Ably to an external target using a Firehose integration rule. This excludes presence and object messages. |
+| **messages.outbound.externalQueue.messages.uncompressedData** | Total uncompressed Firehose message size, sent from Ably to an external target using a Firehose integration rule. This excludes delta compression, and presence and object messages. |
+| **messages.outbound.externalQueue.messages.failed** | Total number of Firehose messages, excluding presence and object messages, that failed because they were rejected by the external integration target for some reason. |
+| **messages.outbound.externalQueue.messages.refused** | Total number of Firehose messages, excluding presence and object messages, that Ably refused to send. This is generally due to [rate limiting](https://ably.com/docs/platform/pricing/limits.md). |
+| **messages.outbound.externalQueue.presence.count** | Total Firehose presence message count, sent from Ably to an external target using a Firehose integration rule. |
+| **messages.outbound.externalQueue.presence.data** | Total Firehose presence message size, sent from Ably to an external target using a Firehose integration rule. |
+| **messages.outbound.externalQueue.presence.uncompressedData** | Total uncompressed Firehose presence message size, sent from Ably to an external target using a Firehose integration rule. This excludes delta compression. |
+| **messages.outbound.externalQueue.presence.failed** | Total number of Firehose presence messages that failed, because they were rejected by the external integration target for some reason. |
+| **messages.outbound.externalQueue.presence.refused** | Total number of Firehose presence messages that Ably refused to send. This is generally due to [rate limiting](https://ably.com/docs/platform/pricing/limits.md). |
+| **messages.outbound.httpEvent.all.count** | Total messages sent by a HTTP trigger. Typically a serverless function on a service such as AWS Lambda, Google Cloud Functions, or Azure Functions. |
+| **messages.outbound.httpEvent.all.data** | Total size of messages sent by a HTTP trigger. Typically a serverless function on a service such as AWS Lambda, Google Cloud Functions, or Azure Functions. |
+| **messages.outbound.httpEvent.all.uncompressedData** | Total uncompressed size of messages sent by a HTTP trigger. Typically a serverless function on a service such as AWS Lambda, Google Cloud Functions, or Azure Functions. This excludes delta compression. |
+| **messages.outbound.httpEvent.all.failed** | Total number of messages sent by a HTTP trigger that failed, because they were rejected by the external endpoint for some reason. |
+| **messages.outbound.httpEvent.all.refused** | Total number of messages sent by a HTTP trigger that Ably refused to send. This is generally due to [rate limiting](https://ably.com/docs/platform/pricing/limits.md). |
+| **messages.outbound.httpEvent.messages.count** | Total messages sent by a HTTP trigger. Typically a serverless function on a service such as AWS Lambda, Google Cloud Functions, or Azure Functions. This excludes presence and object messages. |
+| **messages.outbound.httpEvent.messages.data** | Total size of messages sent by a HTTP trigger. Typically a serverless function on a service such as AWS Lambda, Google Cloud Functions, or Azure Functions. This excludes presence and object messages. |
+| **messages.outbound.httpEvent.messages.uncompressedData** | Total uncompressed size of messages sent by a HTTP trigger. Typically a serverless function on a service such as AWS Lambda, Google Cloud Functions, or Azure Functions. This excludes delta compression, and presence and object messages. |
+| **messages.outbound.httpEvent.messages.failed** | Total number of messages sent by a HTTP trigger, excluding presence and object messages, that failed because they were rejected by the external endpoint for some reason. |
+| **messages.outbound.httpEvent.messages.refused** | Total number of messages sent by a HTTP trigger, excluding presence and object messages, that Ably refused to send. This is generally due to [rate limiting](https://ably.com/docs/platform/pricing/limits.md). |
+| **messages.outbound.httpEvent.presence.count** | Total presence messages sent by a HTTP trigger. Typically a serverless function on a service such as AWS Lambda, Google Cloud Functions, or Azure Functions. |
+| **messages.outbound.httpEvent.presence.data** | Total size of presence messages sent by a HTTP trigger. Typically a serverless function on a service such as AWS Lambda, Google Cloud Functions, or Azure Functions. |
+| **messages.outbound.httpEvent.presence.uncompressedData** | Total uncompressed size of presence messages sent by a HTTP trigger. Typically serverless functions on a service such as AWS Lambda, Google Cloud Functions, or Azure Functions. This excludes delta compression. |
+| **messages.outbound.httpEvent.presence.failed** | Total number of presence messages sent by a HTTP trigger that failed because they were rejected by the external endpoint for some reason. |
+| **messages.outbound.httpEvent.presence.refused** | Total number of presence messages sent by a HTTP trigger that Ably refused to send. This is generally due to [rate limiting](https://ably.com/docs/platform/pricing/limits.md). |
+| **messages.outbound.push.all.count** | Total count of push messages, sent to devices via a push notifications transport such as FCM or APNs. |
+| **messages.outbound.push.all.data** | Total size of push messages, sent to devices via a push notifications transport such as FCM or APNs. |
+| **messages.outbound.push.all.uncompressedData** | Total uncompressed push message size, excluding delta compression, pushed to devices via a push notifications transport such as FCM or APNs. |
+| **messages.outbound.push.all.failed** | Total number of push messages that failed. These are messages which did not succeed for some reason other than Ably explicitly refusing them, such as rejection by APNs or FCM, or a service issue on Ably's side. |
+| **messages.outbound.push.all.refused** | Total number of push messages that were refused by Ably. For example, due to [rate limiting](https://ably.com/docs/platform/pricing/limits.md). |
+| **messages.outbound.push.messages.count** | Total push message count, excluding delta compression, and presence and object messages, pushed to devices via a push notifications transport such as FCM or APNs.|
+| **messages.outbound.push.messages.data** | Total push message size, excluding delta compression, and presence and object messages, pushed to devices via a push notifications transport such as FCM or APNs. |
+| **messages.outbound.push.messages.uncompressedData** | Total uncompressed push message size, excluding delta compression, and presence and object messages, pushed to devices via a push notifications transport such as FCM or APNs. |
+| **messages.outbound.push.messages.failed** | Total number of push messages, excluding presence and object messages, that failed. These are messages which did not succeed for some reason other than Ably explicitly refusing them, such as rejection by APNs or FCM, or a service issue on Ably's side. |
+| **messages.outbound.push.messages.refused** | Total number of push messages, excluding presence and object messages, that were refused by Ably. For example due to [rate limiting](https://ably.com/docs/platform/pricing/limits.md). |
+| **messages.outbound.push.presence.count** | Total push presence message count, sent to devices via a push notifications transport such as FCM or APNs. |
+| **messages.outbound.push.presence.data** | Total push presence message size, sent to devices via a push notifications transport such as FCM or APNs. |
+| **messages.outbound.push.presence.uncompressedData** | Total uncompressed push presence message size, excluding delta compression, sent to devices via a push notifications transport such as FCM or APNs. |
+| **messages.outbound.push.presence.failed** | Total number of push presence messages that failed. These are messages which did not succeed for some reason other than Ably explicitly refusing them, such as rejection by APNs or FCM, or a service issue on Ably's side. |
+| **messages.outbound.push.presence.refused** | Total number of push presence messages that were refused by Ably. For example due to [rate limiting](https://ably.com/docs/platform/pricing/limits.md). |
+| **messages.outbound.all.all.count** | Total outbound message count, sent from Ably to clients. |
+| **messages.outbound.all.all.billableCount** | Total billable outbound message count, sent from Ably to clients. |
+| **messages.outbound.all.all.data** | Total outbound message size, sent from Ably to clients. |
+| **messages.outbound.all.all.uncompressedData** | Total uncompressed outbound message size, excluding delta compression, sent from Ably to clients. |
+| **messages.outbound.all.all.failed** | Total number of outbound messages that failed. These are messages which not succeed for some reason other than Ably explicitly refusing them, such as rejection by an external integration target, or a service issue on Ably's side. |
+| **messages.outbound.all.all.refused** | Total number of outbound messages that were refused by Ably. This is generally due to [rate limiting](https://ably.com/docs/platform/pricing/limits.md). |
+| **messages.outbound.all.messages.count** | Total outbound message count, excluding presence and object messages, sent from Ably to clients. |
+| **messages.outbound.all.messages.billableCount** | Total billable outbound message count, excluding presence and object messages, sent from Ably to clients. |
+| **messages.outbound.all.messages.data** | Total outbound message size, excluding presence and object messages, sent from Ably to clients. |
+| **messages.outbound.all.messages.uncompressedData** | Total uncompressed outbound message size, excluding delta compression, and presence and object messages, sent from Ably to clients. |
+| **messages.outbound.all.messages.failed** | Total number of outbound messages excluding presence and object messages that failed. These are messages which did not succeed for some reason other than Ably explicitly refusing them, such as rejection by an external integration target, or a service issue on Ably's side. |
+| **messages.outbound.all.messages.refused** | Total number of outbound messages excluding presence and object messages that were refused by Ably. This is generally due to [rate limiting](https://ably.com/docs/platform/pricing/limits.md). |
+| **messages.outbound.all.presence.count** | Total outbound presence message count, sent from Ably to clients. |
+| **messages.outbound.all.presence.billableCount** | Total billable outbound presence message count, sent from Ably to clients. |
+| **messages.outbound.all.presence.data** | Total outbound presence message size, sent from Ably to clients. |
+| **messages.outbound.all.presence.uncompressedData** | Total uncompressed outbound presence message size, excluding delta compression, sent from Ably to clients. |
+| **messages.outbound.all.presence.failed** | Total number of outbound presence messages that failed. These are messages which not succeed for some reason other than Ably explicitly refusing them, such as rejection by an external integration target, or a service issue on Ably's side. |
+| **messages.outbound.all.presence.refused** | Total number of outbound presence messages that were refused by Ably. This is generally due to [rate limiting](https://ably.com/docs/platform/pricing/limits.md). |
+
+### Persisted messages 
+
+Persisted messages metrics are calculated from the number of [messages stored](https://ably.com/docs/storage-history/storage.md) by Ably.
+
+| Metric | Description |
+| --- | --- |
+| **messages.persisted.all.count** | Total count of persisted messages. |
+| **messages.persisted.all.data** | Total size of persisted messages. |
+| **messages.persisted.all.uncompressedData** | Total uncompressed persisted message size, excluding delta compression. |
+| **messages.persisted.messages.count** | Total count of persisted messages, excluding presence and object messages. |
+| **messages.persisted.messages.data** | Total size of persisted messages, excluding presence and object messages. |
+| **messages.persisted.messages.uncompressedData** | Total uncompressed persisted message size, excluding delta compression, and presence and object messages. |
+| **messages.persisted.presence.count** | Total count of persisted presence messages. |
+| **messages.persisted.presence.data** | Total size of persisted presence messages. |
+| **messages.persisted.presence.uncompressedData** | Total uncompressed persisted presence message size, excluding delta compression. |
+
+### Message deltas 
+
+Message deltas metrics are calculated from the number of [messages delta](https://ably.com/docs/channels/options/deltas.md) generated.
+
+| Metric | Description |
+| --- | --- |
+| **messages.processed.delta.xdelta.succeeded** | Total number of message deltas successfully generated. |
+| **messages.processed.delta.xdelta.skipped** | Total number of messages on channels where delta was enabled but where Ably skipped delta generation. For example, because the payload was too small to make it worthwhile. |
+| **messages.processed.delta.xdelta.failed** | Total number of messages on channels where delta generation was attempted but a delta was not successfully generated, so Ably just broadcasted the original. |
+
+### Connections 
+
+Connection metrics include all realtime [connections](https://ably.com/docs/connect.md) made to Ably.
+
+| Metric | Description |
+| --- | --- |
+| **connections.all.peak** | Peak connection count. |
+| **connections.all.min** | Minimum connection count. |
+| **connections.all.mean** | Mean connection count. |
+| **connections.all.opened** | Total number of connections opened. |
+| **connections.all.refused** | Total number of connections refused, for example for exceeding the [connection creation rate](https://ably.com/docs/platform/pricing/limits.md#connection). |
+
+### Channels 
+
+Channel metrics include all active [channels](https://ably.com/docs/channels.md) that are used to separate messages into different topics throughout Ably.
+
+| Metric | Description |
+| --- | --- |
+| **channels.peak** | Peak active channel count. |
+| **channels.min** | Minimum active channel count. |
+| **channels.mean** | Mean active channel count. |
+| **channels.opened** | Total number of channels opened. |
+| **channels.refused** | Total number of channel creations rejected for exceeding the [channel creation rate](https://ably.com/docs/platform/pricing/limits.md#channel). |
+
+### API requests 
+
+API request metrics include all HTTP requests made to Ably, including those related to [token authentication](https://ably.com/docs/auth/token.md) and [push notifications](https://ably.com/docs/push.md). They do not include those requests made to the [Control API](https://ably.com/docs/platform/account/control-api.md).
+
+| Metric | Description |
+| --- | --- |
+| **apiRequests.all.succeeded** | Total number of API requests made. |
+| **apiRequests.all.failed** | Total number of failed API requests. |
+| **apiRequests.all.refused** | Total number of API requests refused due to account limits. |
+| **apiRequests.tokenRequests.succeeded** | Total number of token requests made. |
+| **apiRequests.tokenRequests.failed** | Total number of failed token requests. |
+| **apiRequests.tokenRequests.refused** | Total number of token requests refused due to insufficient permissions or rate limiting. |
+| **apiRequests.push.succeeded** | Total number of push requests made. |
+| **apiRequests.push.failed** | Total number of failed push requests. |
+| **apiRequests.push.refused** | Total number of push requests refused. |
+| **apiRequests.other.succeeded** | Total number of requests made, excluding token and push requests. |
+| **apiRequests.other.failed** | Total number of failed requests, excluding token and push requests. |
+| **apiRequests.other.refused** | Total number of requests refused, excluding token and push requests. |
+
+### Push notifications 
+
+Push notification metrics include all [notifications](https://ably.com/docs/push.md) sent to devices via one of the push transports such as APNs, FCM or web.
+
+| Metric | Description |
+| --- | --- |
+| **push.channelMessages** | Total number of channel messages published over Ably that contained a `push` payload. Each of these may have triggered notifications to be sent to a device with a matching registered push subscription. |
+| **push.notifications.delivered.fcm** | Total number of push notifications successfully delivered over the FCM transport. |
+| **push.notifications.delivered.gcm** | Total number of push notifications successfully delivered over the GCM transport. |
+| **push.notifications.delivered.apns** | Total number of push notifications successfully delivered over the APNs transport. |
+| **push.notifications.delivered.apnsLocation** | Total number of APNs location push notifications successfully delivered. |
+| **push.notifications.delivered.apnsAlert** | Total number of APNs alert push notifications successfully delivered. |
+| **push.notifications.delivered.web** | Total number of push notifications successfully delivered over the web transport. |
+| **push.notifications.delivered.total** | Total number of push notifications successfully delivered over any transport. |
+| **push.notifications.refused.retriable.fcm** | Total number of push notifications that Ably attempted to deliver to FCM but were refused with a retriable error. Ably will attempt to retry these. |
+| **push.notifications.refused.retriable.gcm** | Total number of push notifications that Ably attempted to deliver to GCM but were refused with a retriable error. Ably will attempt to retry these. |
+| **push.notifications.refused.retriable.apns** | Total number of push notifications that Ably attempted to deliver to APNs but were refused with a retriable error. Ably will attempt to retry these. |
+| **push.notifications.refused.retriable.apnsLocation** | Total number of APNs location push notifications that Ably attempted to deliver but were refused with a retriable error. Ably will attempt to retry these. |
+| **push.notifications.refused.retriable.apnsAlert** | Total number of APNs alert push notifications that Ably attempted to deliver but were refused with a retriable error. Ably will attempt to retry these. |
+| **push.notifications.refused.retriable.web** | Total number of push notifications that Ably attempted to deliver over a web push transport but were refused with a retriable error. Ably will attempt to retry these. |
+| **push.notifications.refused.retriable.total** | Total number of push notifications that Ably attempted to deliver but were refused with a retriable error. Ably will attempt to retry these. |
+| **push.notifications.refused.final.fcm** | Total number of push notifications that Ably attempted to deliver to FCM but were refused with an error that wasn't retriable. |
+| **push.notifications.refused.final.gcm** | Total number of push notifications that Ably attempted to deliver to GCM but were refused with an error that wasn't retriable. |
+| **push.notifications.refused.final.apns** | Total number of push notifications that Ably attempted to deliver to APNs but were refused with an error that wasn't retriable. |
+| **push.notifications.refused.final.apnsLocation** | Total number of APNs location push notifications that Ably attempted to deliver but were refused with an error that wasn't retriable. |
+| **push.notifications.refused.final.apnsAlert** | Total number of APNs alert push notifications that Ably attempted to deliver but were refused with an error that wasn't retriable. |
+| **push.notifications.refused.final.web** | Total number of push notifications that Ably attempted to deliver over a web push transport but were refused with an error that wasn't retriable. |
+| **push.notifications.refused.final.total** | Total number of push notifications that Ably attempted to deliver but were refused with an error that wasn't retriable. |
+| **push.notifications.skipped.apns** | Total number of push notifications that Ably did not attempt to deliver to APNs. For example, APNs location push notifications sent over a channel to subscribing devices without location tokens. |
+| **push.notifications.skipped.apnsLocation** | Total number of APNs location push notifications that Ably did not attempt to deliver. For example, when a location push notification is sent to a device that doesn't have a location token registered. |
+| **push.notifications.skipped.apnsAlert** | Total number of APNs alert push notifications that Ably did not attempt to deliver. For example, when an alert push notification is sent to a device that doesn't have an alert token registered. |
+| **push.notifications.skipped.total** | Total number of push notifications that Ably did not attempt to deliver. For example, an APNs location push notification sent over a channel to subscribing devices without location tokens. |
+| **push.notifications.all.fcm** | Total number of attempts to deliver push notifications over the FCM transport, irrespective of whether they were successful, or not. |
+| **push.notifications.all.gcm** | Total number of attempts to deliver push notifications over the GCM transport, irrespective of whether they were successful, or not. |
+| **push.notifications.all.apns** | Total number of attempts to deliver push notifications over the APNs transport, irrespective of whether they were successful, or not. |
+| **push.notifications.all.apnsLocation** | Total number of attempts to deliver APNs location push notifications, irrespective of whether they were successful, or not. |
+| **push.notifications.all.apnsAlert** | Total number of attempts to deliver APNs alert push notifications, irrespective of whether they were successful, or not. |
+| **push.notifications.all.web** | Total number of attempts to deliver push notifications over the web transport, irrespective of whether they were successful, or not. |
+| **push.notifications.all.total** | Total number of attempts to deliver push notifications over any transport, irrespective of whether they were successful, or not. |
+| **push.directPublishes** | Total number of direct push publishes. These are notifications triggered by a request to `/push/publish`, not a message sent on a channel that contains a `push` payload. |
+
+### Account-only metrics 
+
+The following metrics will only be returned when querying account statistics.
+
+| Metric | Description |
+| --- | --- |
+| **peakRates.messages** | Peak rate of messages. |
+| **peakRates.apiRequests** | Peak rate of api requests. |
+| **peakRates.tokenRequests** | Peak rate of token requests. |
+| **peakRates.connections** | Peak rate of opened connections. |
+| **peakRates.channels** | Peak rate of channels activations. |
+| **peakRates.reactor.httpEvent** | Peak rate of events sent to an HTTP trigger. Typically a serverless function on a service such as AWS Lambda, Google Cloud Functions, or Azure Functions. |
+| **peakRates.reactor.amqp** | Peak rate of events sent to an Ably Queue using an integration rule. |
+| **peakRates.reactor.externalQueue** | Peak rate of events sent to an external endpoint using a Firehose integration rule. |
+| **peakRates.reactor.webhook** | Peak rate of events sent to webhook configured through an integration rule. |
+| **peakRates.pushRequests** | Peak rate of push API requests. |
+
+## Documentation Index
+
+To discover additional Ably documentation:
+
+1. Fetch [llms.txt](https://ably.com/llms.txt) for the canonical list of available pages.
+2. Identify relevant URLs from that index.
+3. Fetch target pages as needed.
+
+Avoid using assumed or outdated documentation paths.

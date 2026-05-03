@@ -1,0 +1,947 @@
+# Updates, deletes and appends
+
+<Aside data-type='public-preview'>
+Message updates and deletes are currently in Public Preview. That means that we are committed to supporting it and expect the API to be stable unless we discover a significant issue, but it may not yet be implemented in all of our SDKs, and there may be other minor shortcomings.
+</Aside>
+
+You can update and delete messages that have been published to a channel, for use cases such as:
+
+* **Message editing** - allow users to edit their messages in chat-like applications
+* **Content moderation** - remove or edit inappropriate content after publication
+* **Gradual message building** - a message can be published while still unfinished, and then repeatedly edited with more complete information, so that someone querying history once the message is complete will only see the final version
+
+Updating or deleting a message does not modify any messages that have been received by subscribing clients in-place: a given Message object is immutable. Rather, it publishes a new message to the channel, with an action of `message.update` or `message.delete`, with the same `serial` as the original message, that subscribing clients can see and act on.
+
+It also replaces the original message in message history, so history queries will see the latest version of the message (but in the place in history of the original).
+
+You can specify metadata (such as the reason for the update and which client is doing the update), which is published along with it.
+
+You can access the full version history of any given message.
+
+## Enable message updates and deletes 
+
+Message updates and deletes can be enabled for a channel or channel namespace with the *Message annotations, updates, deletes, and appends* rule.
+
+<Aside data-type='important'>
+When message updates and deletes are enabled, messages are [persisted](https://ably.com/docs/storage-history/storage.md#all-message-persistence) regardless of whether or not persistence is enabled, in order to support the feature. This may increase your usage since [we charge for persisting messages](https://faqs.ably.com/how-does-ably-count-messages).
+</Aside>
+
+<Tabs>
+<Tab value="dashboard" label="Dashboard">
+
+In your app [settings](https://ably.com/accounts/any/apps/any/settings):
+
+1. Click **Add new rule**.
+2. Enter the channel name or namespace on which to enable message updates and deletes.
+3. Check **Message annotations, updates, deletes, and appends**.
+4. Click **Create rule** to save.
+
+</Tab>
+<Tab value="control-api" label="Control API">
+
+Create a rule with updates and deletes enabled using the Control API by sending a `POST` request to [`/apps/{app_id}/namespaces`](https://ably.com/docs/api/control-api.md):
+
+<Code>
+
+### Shell
+
+```
+curl -X POST https://control.ably.net/v1/apps/{APP_ID}/namespaces \
+  -H "Authorization: Bearer {ACCESS_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "my-namespace",
+    "mutableMessages": true
+  }'
+```
+</Code>
+
+</Tab>
+<Tab value="cli" label="Ably CLI">
+
+Use the [Ably CLI](https://ably.com/docs/platform/tools/cli.md) to create a rule with updates and deletes enabled:
+
+<Code>
+
+### Shell
+
+```
+ably apps rules create \
+  --name "my-namespace" \
+  --mutable-messages
+```
+</Code>
+
+Run `ably apps rules create --help` for a full list of available options.
+
+</Tab>
+</Tabs>
+
+## Update a message 
+
+To update an existing message, use the `updateMessage()` method on a REST or realtime channel. The published update will have an `action` of `message.update`.
+
+The message is identified by its `serial`, which is populated by Ably. To update a message, you need its serial - you can get this either from the return value of `publish()`, from a received message via subscription, or by querying history.
+
+<Code>
+
+### Javascript
+
+```
+const realtime = new Ably.Realtime({ key: 'your-api-key' });
+// This assumes there is an 'updates' namespace with a rule enabling updates and deletes
+const channel = realtime.channels.get('updates:example');
+
+// Publish the original message and get its serial from the result
+const publishResult = await channel.publish({
+  name: 'message-name',
+  data: 'original-data',
+});
+const serial = publishResult.serials[0];
+
+// Publish an update using the serial
+await channel.updateMessage(
+  {
+    serial,
+    data: 'updated-data'
+  },
+  { description: 'reason for update' }
+);
+
+```
+
+### Nodejs
+
+```
+const realtime = new Ably.Realtime({ key: 'your-api-key' });
+// This assumes there is an 'updates' namespace with a rule enabling updates and deletes
+const channel = realtime.channels.get('updates:example');
+
+// Publish the original message and get its serial from the result
+const publishResult = await channel.publish({
+  name: 'message-name',
+  data: 'original-data',
+});
+const serial = publishResult.serials[0];
+
+// Publish an update using the serial
+await channel.updateMessage(
+  {
+    serial,
+    data: 'updated-data'
+  },
+  { description: 'reason for update' }
+);
+```
+
+### Swift
+
+```
+import Ably
+
+let realtime = ARTRealtime(key: "your-api-key")
+// This assumes there is an 'updates' namespace with a rule enabling updates and deletes
+let channel = realtime.channels.get("updates:example")
+
+// Publish the original message
+channel.publish([.init(name: "message-name", data: "original-data")]) { result, error in
+    if let error = error {
+        print("Failed to publish: \(error.message)")
+        return
+    }
+
+    // Get the serial from the published message
+    guard let serial = result.serials.first else {
+        print("No serial available")
+        return
+    }
+
+    // Publish an update using the serial
+    let messageUpdate = ARTMessage(name: nil, data: "updated-data")
+    messageUpdate.serial = serial
+
+    channel.update(messageUpdate, operation: .init(clientId: nil, descriptionText: "reason for update", metadata: nil), params: nil) { result, error in
+        if let error = error {
+            print("Failed to update message: \(error.message)")
+            return
+        }
+        print("Message updated")
+    }
+}
+```
+
+### Java
+
+```
+AblyRealtime realtime = new AblyRealtime("your-api-key");
+// This assumes there is an 'updates' namespace with a rule enabling updates and deletes
+Channel channel = realtime.channels.get("updates:example");
+
+// Publish the original message and get its serial from the result
+CompletableFuture<PublishResult> publishFuture = new CompletableFuture<>();
+channel.publish("message-name", "original-data", new Callback<PublishResult>() {
+  @Override
+  public void onSuccess(PublishResult result) {
+    publishFuture.complete(result);
+  }
+
+  @Override
+  public void onError(ErrorInfo reason) {
+    publishFuture.completeExceptionally(AblyException.fromErrorInfo(reason));
+  }
+});
+String serial = publishFuture.get().serials[0];
+
+// Publish an update using the serial
+Message message = new Message();
+message.data = "updated-data";
+message.serial = serial;
+MessageOperation operation = new MessageOperation();
+operation.description = "reason for update";
+CompletableFuture<UpdateDeleteResult> updateFuture = new CompletableFuture<>();
+channel.updateMessage(message, operation, new Callback<UpdateDeleteResult>() {
+  @Override
+  public void onSuccess(UpdateDeleteResult result) {
+    updateFuture.complete(result);
+  }
+
+  @Override
+  public void onError(ErrorInfo reason) {
+    updateFuture.completeExceptionally(AblyException.fromErrorInfo(reason));
+  }
+});
+updateFuture.get();
+```
+
+### Python
+
+```
+realtime = AblyRealtime("your-api-key")
+# This assumes there is an 'updates' namespace with a rule enabling updates and deletes
+channel = realtime.channels.get("updates:example")
+
+# Publish the original message and get its serial from the result
+publish_result = await channel.publish("message-name", "original-data")
+serial = publish_result.serials[0]
+
+message = Message(data="updated-data", serial=serial)
+operation = MessageOperation(description="reason for update")
+result = await channel.update_message(message, operation)
+print("Message updated")
+```
+</Code>
+
+#### Returns
+
+Returns an [`UpdateDeleteResult`](https://ably.com/docs/api/realtime-sdk/types.md#update-delete-result), an object with a single `versionSerial` field: the serial of the version of the updated message, or `null` if the message was superseded by a subsequent update before it could be published.
+
+#### Mixin semantics 
+
+When updating a message, any `data`, `name`, and `extras` you specify in the update will replace the corresponding fields in the existing message. Any you leave out remain as they were, so you get a shallow mixin. For example, if a message has `{ name: "greeting", data: "hello" }`, and you update it with `{ data: "hi" }`, the result will be `{ name: "greeting", data: "hi" }`.
+
+The fields that can be updated are:
+- `data`
+- `name`
+- `extras`
+
+#### Conflation 
+
+Ably may opportunistically discard out of date updates to a given message, for example, during a serverside batching step, or within a [rewind](https://ably.com/docs/channels/options/rewind.md) backlog. This means subscribers are not guaranteed to receive every intermediate update if multiple updates occur in quick succession, but it is guaranteed that the last update that they receive will represent the most recent version of the message (matching the version that will be eventually retrievable by a history or [getMessage()](http://localhost:8000/docs/messages/updates-deletes#get) request).
+
+#### Capabilities 
+
+To update messages, clients need one of the following [capabilities](https://ably.com/docs/auth/capabilities.md):
+
+| Capability | Description |
+| ---------- | ----------- |
+| **message-update-own** | Can update your own messages (more precisely, messages where the original publisher's `clientId` matches the updater's `clientId`, where both are [identified](https://ably.com/docs/auth/identified-clients.md)). |
+| **message-update-any** | Can update any message on the channel. |
+
+#### Operation metadata 
+
+When updating a message, you can optionally provide metadata about the update operation:
+
+| Property | Description | Type |
+| -------- | ----------- | ---- |
+| clientId | The client identifier of the user performing the update (automatically populated if the delete is done by an identified client). | String |
+| description | A description of why the update was made. | String |
+| metadata | Additional metadata about the update operation. | Object |
+
+This metadata will end up in the message's `version` property. See [Message version structure](https://ably.com/docs/messages/updates-deletes.md#version-structure) for what this looks like.
+
+## Delete a message 
+
+To delete a message, use the `deleteMessage()` method on a REST or realtime channel. This is very much a 'soft' delete: it's just an update, but with an `action` of `message.delete` instead of `message.update`. It's up to your application to interpret it.
+
+The latest version of each message will be accessible from history, including if that latest version happens to be a delete.
+
+The message is identified by its `serial`, which is populated by Ably. To delete a message, you need its serial - you can get this either from the return value of `publish()`, from a received message via subscription, or by querying history.
+
+Deleting a message marks it as deleted without removing it from the server. The full message history remains accessible through the [message versions](#versions) API.
+
+<Code>
+
+### Javascript
+
+```
+const realtime = new Ably.Realtime({ key: 'your-api-key' });
+// This assumes there is an 'updates' namespace with a rule enabling updates and deletes
+const channel = realtime.channels.get('updates:example');
+
+// Publish the original message and get its serial from the result
+const publishResult = await channel.publish({
+  name: 'message-name',
+  data: 'original-data',
+});
+const serial = publishResult.serials[0];
+
+// Delete the message using the serial
+await channel.deleteMessage(
+  {
+    serial,
+    data: '' // clear the previous data
+  },
+  { description: 'reason for delete' }
+);
+```
+
+### Nodejs
+
+```
+const realtime = new Ably.Realtime({ key: 'your-api-key' });
+// This assumes there is an 'updates' namespace with a rule enabling updates and deletes
+const channel = realtime.channels.get('updates:example');
+
+// Publish the original message and get its serial from the result
+const publishResult = await channel.publish({
+  name: 'message-name',
+  data: 'original-data',
+});
+const serial = publishResult.serials[0];
+
+// Delete the message using the serial
+await channel.deleteMessage(
+  {
+    serial,
+    data: '' // clear the previous data
+  },
+  { description: 'reason for delete' }
+);
+```
+
+### Swift
+
+```
+import Ably
+
+let realtime = ARTRealtime(key: "your-api-key")
+// This assumes there is an 'updates' namespace with a rule enabling updates and deletes
+let channel = realtime.channels.get("updates:example")
+
+// Publish the original message
+channel.publish([.init(name: "message-name", data: "original-data")]) { result, error in
+    if let error = error {
+        print("Failed to publish: \(error.message)")
+        return
+    }
+
+    // Get the serial from the published message
+    guard let serial = result.serials.first else {
+        print("No serial available")
+        return
+    }
+
+    // Delete the message using the serial
+    let messageToDelete = ARTMessage(name: nil, data: "") // clear the previous data
+    messageToDelete.serial = serial
+
+    channel.delete(messageToDelete, operation: .init(clientId: nil, descriptionText: "reason for delete", metadata: nil), params: nil) { result, error in
+        if let error = error {
+            print("Failed to delete message: \(error.message)")
+            return
+        }
+        print("Message deleted")
+    }
+}
+```
+
+### Java
+
+```
+AblyRealtime realtime = new AblyRealtime("your-api-key");
+// This assumes there is an 'updates' namespace with a rule enabling updates and deletes
+Channel channel = realtime.channels.get("updates:example");
+
+// Publish the original message and get its serial from the result
+CompletableFuture<PublishResult> publishFuture = new CompletableFuture<>();
+channel.publish("message-name", "original-data", new Callback<PublishResult>() {
+  @Override
+  public void onSuccess(PublishResult result) {
+    publishFuture.complete(result);
+  }
+
+  @Override
+  public void onError(ErrorInfo reason) {
+    publishFuture.completeExceptionally(AblyException.fromErrorInfo(reason));
+  }
+});
+String serial = publishFuture.get().serials[0];
+
+// Publish an update using the serial
+Message message = new Message();
+message.data = "";
+message.serial = serial;
+MessageOperation operation = new MessageOperation();
+operation.description = "reason for delete";
+CompletableFuture<UpdateDeleteResult> deleteFuture = new CompletableFuture<>();
+channel.deleteMessage(message, operation, new Callback<UpdateDeleteResult>() {
+  @Override
+  public void onSuccess(UpdateDeleteResult result) {
+    deleteFuture.complete(result);
+  }
+
+  @Override
+  public void onError(ErrorInfo reason) {
+    deleteFuture.completeExceptionally(AblyException.fromErrorInfo(reason));
+  }
+});
+deleteFuture.get();
+```
+
+### Python
+
+```
+realtime = AblyRealtime("your-api-key")
+# This assumes there is an 'updates' namespace with a rule enabling updates and deletes
+channel = realtime.channels.get("updates:example")
+
+# Publish the original message and get its serial from the result
+publish_result = await channel.publish("message-name", "original-data")
+serial = publish_result.serials[0]
+
+message = Message(data="", serial=serial)  # clear the previous data
+operation = MessageOperation(description="reason for delete")
+result = await channel.delete_message(message, operation)
+print("Message deleted")
+```
+</Code>
+
+#### Returns
+
+Returns an [`UpdateDeleteResult`](https://ably.com/docs/api/realtime-sdk/types.md#update-delete-result), an object with a single `versionSerial` field: the serial of the version of the deleted message, or `null` if the message was superseded by a subsequent update before it could be published.
+
+#### Mixin semantics 
+
+Deleting has the same semantics as updating, so only the message fields (out of `data`, `name`, and `extras`) you specify in the update will replace the corresponding fields in the existing message, in a shallow mixin.
+
+That means that if you e.g. want the deleted message to have empty `data` (to prevent users looking at raw history results from the API from seeing what the data used to be), you must explicitly set to e.g. an empty object when publishing the delete. (And even then, all previous versions are accessible through the version history API).
+
+#### Conflation 
+
+Since deletes are just updates with a different action, [as with updates](#update-conflation), Ably may opportunistically discard out of date versions of a given message, for example, during a serverside batching step, or within a [rewind](https://ably.com/docs/channels/options/rewind.md) backlog. This means subscribers are not guaranteed to receive every intermediate update if multiple updates/deletes occur in quick succession, but it is guaranteed that the last update/delete that they receive will represent the most recent version of the message (matching the version that will be eventually retrievable by a history or [getMessage()](http://localhost:8000/docs/messages/updates-deletes#get) request).
+
+#### Capabilities 
+
+To delete messages, clients need one of the following [capabilities](https://ably.com/docs/auth/capabilities.md):
+
+| Capability | Description |
+| ---------- | ----------- |
+| **message-delete-own** | Can delete your own messages (more precisely, messages where the original publisher's `clientId` matches the deleter's `clientId`, where both are [identified](https://ably.com/docs/auth/identified-clients.md)). |
+| **message-delete-any** | Can delete any message on the channel. |
+
+#### Operation metadata 
+
+When deleting a message, you can optionally provide metadata:
+
+| Property | Description | Type |
+| -------- | ----------- | ---- |
+| clientId | The client identifier of the user performing the delete (automatically populated if the delete is done by an identified client). | String |
+| description | A description of why the delete was made. | String |
+| metadata | Additional metadata about the delete operation. | Object |
+
+This metadata will end up in the message's `version` property. See [Message version structure](https://ably.com/docs/messages/updates-deletes.md#version-structure) for what this looks like.
+
+## Append to a message 
+
+To append data to an existing message, use the `appendMessage()` method on a REST or realtime channel. The published append will have an `action` of `message.append`. This is useful for building up message content incrementally, for example in streaming or gradual message building scenarios.
+
+The message is identified by its `serial`, which is populated by Ably. To append to a message, you need its serial - you can get this either from the return value of `publish()`, from a received message via subscription, or by querying history.
+
+<Aside data-type="note">
+If you are publishing appends at a high rate, use a [Realtime](https://ably.com/docs/api/realtime-sdk.md) client rather than [REST](https://ably.com/docs/api/rest-sdk.md). A Realtime client maintains a persistent connection to the Ably service, allowing you to publish at high message rates with low latencies while preserving [message delivery order](https://ably.com/docs/platform/architecture/message-ordering.md). For more information, see [Realtime and REST](https://ably.com/docs/basics.md#realtime-and-rest).
+</Aside>
+
+When Ably receives an append, it concatenates the provided data with the current latest version to calculate a full (non-incremental) version of the message. That version (with an action of `message.update`) is then used in contexts like [History](https://ably.com/docs/storage-history/history.md) and [rewind](https://ably.com/docs/channels/options/rewind.md), so that when using those APIs, you will always receive complete messages without needing to do any concatenation yourself, and can specify e.g. `rewind=10` to get the most recent 10 full, distinct messages.
+
+The first append you receive for a given message on an attachment is delivered as a fully-aggregated `message.update`, so that you don't need to reach into history to discover the full prior state of the message. You can then just concatenate the payloads of any subsequent `message.append`s for that message onto that first one to get the full payload. Note that Ably may at any time deliver an append as a `message.update` with the full rolled-up payload, so you should always check the `action` field to know whether to concatenate onto the existing payload or replace it.
+
+### Comparison with update
+
+| Aspect | `updateMessage()` | `appendMessage()` |
+| ------ | ----------------- | ----------------- |
+| **`data` field** | Replaces if provided | Concatenates to the end of the most recent `data` |
+| **`name` & `extras` fields** | Replaces if provided | Replaces if provided |
+| **Version history** | Stored | Not stored (designed for high-frequency updates from a single publisher) |
+| **Realtime subscribers** | Receive latest full message | Receive incremental appends (but can request full versions via [channel param](https://ably.com/docs/channels/options.md#append-mode)) |
+| **History and rewind** | Get latest full message | Get latest full message (fully-aggregated) |
+
+<Code>
+
+#### Javascript
+
+```
+const realtime = new Ably.Realtime({ key: 'your-api-key' });
+// This assumes there is an 'updates' namespace with a rule enabling updates and deletes
+const channel = realtime.channels.get('updates:example');
+
+// Publish the original message and get its serial from the result
+const publishResult = await channel.publish({
+  name: 'message-name',
+  data: 'Hello',
+});
+const serial = publishResult.serials[0];
+
+// Append to the message a few times (without needing to await each to finish
+// before doing the next); the data will be concatenated
+channel.appendMessage({ serial, data: ', ' });
+channel.appendMessage({ serial, data: 'World' });
+channel.appendMessage({ serial, data: '!' });
+
+// the message in history now has data: "Hello, World!"
+```
+
+#### Nodejs
+
+```
+const realtime = new Ably.Realtime({ key: 'your-api-key' });
+// This assumes there is an 'updates' namespace with a rule enabling updates and deletes
+const channel = realtime.channels.get('updates:example');
+
+// Publish the original message and get its serial from the result
+const publishResult = await channel.publish({
+  name: 'message-name',
+  data: 'Hello',
+});
+const serial = publishResult.serials[0];
+
+// Append to the message a few times (without needing to await each to finish
+// before doing the next); the data will be concatenated
+channel.appendMessage({ serial, data: ', ' });
+channel.appendMessage({ serial, data: 'World' });
+channel.appendMessage({ serial, data: '!' });
+
+// the message in history now has data: "Hello, World!"
+```
+
+#### Java
+
+```
+AblyRealtime realtime = new AblyRealtime("your-api-key");
+// This assumes there is an 'updates' namespace with a rule enabling updates and deletes
+Channel channel = realtime.channels.get("updates:example");
+
+// Publish the original message and get its serial from the result
+CompletableFuture<PublishResult> publishFuture = new CompletableFuture<>();
+channel.publish("message-name", "Hello", new Callback<PublishResult>() {
+  @Override
+  public void onSuccess(PublishResult result) {
+    publishFuture.complete(result);
+  }
+
+  @Override
+  public void onError(ErrorInfo reason) {
+    publishFuture.completeExceptionally(AblyException.fromErrorInfo(reason));
+  }
+});
+String serial = publishFuture.get().serials[0];
+
+// Append to the message a few times (without needing to await each to finish
+// before doing the next); the data will be concatenated
+Message message1 = new Message();
+message1.data = " , ";
+message1.serial = serial;
+channel.appendMessage(message1);
+Message message2 = new Message();
+message2.data = "World";
+message2.serial = serial;
+channel.appendMessage(message2);
+Message message3 = new Message();
+message3.data = "!";
+message3.serial = serial;
+CompletableFuture<UpdateDeleteResult> appendFuture = new CompletableFuture<>();
+channel.appendMessage(message3, new Callback<UpdateDeleteResult>() {
+  @Override
+  public void onSuccess(PublishResult result) {
+    appendFuture.complete(result);
+  }
+
+  @Override
+  public void onError(ErrorInfo reason) {
+    appendFuture.completeExceptionally(AblyException.fromErrorInfo(reason));
+  }
+});
+appendFuture.get();
+
+// the message in history now has data: "Hello, World!"
+```
+
+#### Python
+
+```
+realtime = AblyRealtime("your-api-key")
+# This assumes there is an 'updates' namespace with a rule enabling updates and deletes
+channel = realtime.channels.get("updates:example")
+
+# Publish the original message and get its serial from the result
+publish_result = await channel.publish("message-name", "Hello")
+serial = publish_result.serials[0]
+
+message1 = Message(data=" , ", serial=serial)
+channel.append_message(message1)
+message2 = Message(data="World", serial=serial)
+channel.append_message(message2)
+message3 = Message(data="!", serial=serial)
+result = await channel.append_message(message3)
+
+# the message in history now has data: "Hello, World!"
+```
+
+#### Swift
+
+```
+import Ably
+
+let realtime = ARTRealtime(key: "your-api-key")
+// This assumes there is an 'updates' namespace with a rule enabling updates and deletes
+let channel = realtime.channels.get("updates:example")
+
+// Publish the original message
+channel.publish([.init(name: "message-name", data: "Hello")]) { result, error in
+    if let error = error {
+        print("Failed to publish: \(error.message)")
+        return
+    }
+
+    // Get the serial from the published message
+    guard let serial = result.serials.first else {
+        print("No serial available")
+        return
+    }
+
+    // Append to the message a few times (without needing to await each to finish
+    // before doing the next); the data will be concatenated
+    for fragment in [", ", "World", "!"] { // fragments to append
+        let messageAppend = ARTMessage(name: nil, data: fragment)
+        messageAppend.serial = serial
+
+        channel.append(messageAppend, operation: nil, params: nil) { result, error in
+            if let error = error {
+                print("Failed to append: \(error.message)")
+                return
+            }
+            print("Message appended with fragment: \(fragment)")
+        }
+    }
+}
+```
+</Code>
+
+#### Returns
+
+Returns an [`UpdateDeleteResult`](https://ably.com/docs/api/realtime-sdk/types.md#update-delete-result), an object with a single `versionSerial` field: the serial of the version of the appended message, or `null` if the message was superseded by a subsequent update before it could be published.
+
+#### Ordering 
+
+You don't need to wait for one append publish before doing the next: they can be pipelined, and Ably will construct the full payload optimistically in the pipeline. (Which means there is a possibility of an append being rejected e.g. due to a channel rate limit, but its data still being optimistically incorporated into a subsequent append).
+
+If you want to publish a high rate of appends to a single message, you should be publishing with [a realtime client](https://faqs.ably.com/should-i-use-the-rest-or-realtime-library), since then [Ably message order preservation](https://ably.com/docs/platform/architecture/message-ordering.md) will guarantee that the appends will be applied in the same order they were published. If using a REST client, while in practice message order is often still preserved (especially in sdks that use http/2), this cannot be guaranteed.
+
+#### Conflation 
+
+Ably may opportunistically conflate multiple appends to the same message together (concatenating their data payloads), so subscribers may receive a single append containing the combined data of multiple append operations rather than each append individually. The operation metadata of this will be from the most recent of the appends.
+
+Ably may also at any point deliver an append to subscribers as a `message.update` containing the complete payload so far (instead of an incremental `message.append`).
+
+#### Capabilities 
+
+To append to messages, clients need one of the following [capabilities](https://ably.com/docs/auth/capabilities.md):
+
+| Capability | Description |
+| ---------- | ----------- |
+| **message-update-own** | Can append to your own messages (more precisely, messages where the original publisher's `clientId` matches your `clientId`, where both are [identified](https://ably.com/docs/auth/identified-clients.md)). |
+| **message-update-any** | Can append to any message on the channel. |
+
+#### Operation metadata 
+
+When appending to a message, you can optionally provide metadata:
+
+| Property | Description | Type |
+| -------- | ----------- | ---- |
+| clientId | The client identifier of the user performing the append (automatically populated if done by an identified client). | String |
+| description | A description of why the append was made. | String |
+| metadata | Additional metadata about the append operation. | Object |
+
+This metadata will end up in the message's `version` property. See [Message version structure](https://ably.com/docs/messages/updates-deletes.md#version-structure) for what this looks like.
+
+## Message conflation 
+
+When [server-side batching](https://ably.com/docs/messages/batch.md#server-side) or [message conflation](https://ably.com/docs/messages.md#conflation) is enabled, Ably groups update, delete, and append messages received in the configured time window before delivering them to subscribers.
+During this window, if multiple operations target the same message (identified by its `serial`), Ably combines them into a single operation.
+Instead of receiving every intermediate update, append, or delete, subscribers receive a single message representing the combined result.
+For update, delete, and append messages the same behavior applies whether you use batching rules or conflation rules.
+
+### Append conflation
+
+Ably concatenates a series of appends to the same message into a single larger append. Subscribers receive one append containing the combined data from all appends in the conflation window, with the operation metadata from the most recent append.
+The append messages must all have the same data type (e.g. all strings or all binary) in order to be concatenated correctly.
+
+### Update and delete conflation
+
+When an update or delete occurs, it supersedes all previous operations for that message in the time window.
+If additional appends follow the update or delete within the same window, Ably combines them: subscribers receive the full message content including those appends, rather than receiving the update followed by separate append operations.
+
+Conversely, if an update or delete arrives after appends in the conflation window, the update or delete wins and discards the pending appends.
+
+<Aside data-type='note'>
+The exact conflation behavior depends on timing and batching intervals, but subscribers always receive a consistent final state that matches what a history query or [getMessage()](https://ably.com/docs/messages/updates-deletes.md#get) request returns.
+</Aside>
+
+## Get the latest version of a message 
+
+To retrieve the most recent version of a specific message, use the `getMessage()` method on a REST channel. You can pass either the message's serial identifier as a string, or a message object with a `serial` property.
+
+This operation requires the history [capability](https://ably.com/docs/auth/capabilities.md).
+
+<Code>
+
+### Javascript
+
+```
+const rest = new Ably.Rest({ key: 'your-api-key' });
+const channel = rest.channels.get('updates:example');
+
+// could also use msg.serial, useful if you want to retrieve a
+// message for a serial you have stored or passed around
+const message = await channel.getMessage(msg);
+```
+
+### Nodejs
+
+```
+const rest = new Ably.Rest({ key: 'your-api-key' });
+const channel = rest.channels.get('updates:example');
+
+// could also use msg.serial, useful if you want to retrieve a
+// message for a serial you have stored or passed around
+const message = await channel.getMessage(msg);
+```
+
+### Swift
+
+```
+import Ably
+
+let rest = ARTRest(key: "your-api-key")
+let channel = rest.channels.get("updates:example")
+
+// Example serial; for example from the `serial` property of an `ARTMessage` you previously received
+let serial = "0123456789-001@abcdefghij:001"
+
+channel.getMessageWithSerial(serial) { message, error in
+    if let error = error {
+        print("Failed to get message: \(error.message)")
+        return
+    }
+    if let message = message {
+        print("Retrieved message: \(message.data, default: "")")
+    }
+}
+```
+
+### Java
+
+```
+AblyRest rest = new AblyRest("your-api-key");
+Channel channel = rest.channels.get("updates:example");
+
+// Example serial; for example from the `serial` property of a `Message` you previously received
+String serial = "0123456789-001@abcdefghij:001";
+
+Message message = channel.getMessage(serial);
+```
+
+### Python
+
+```
+rest = AblyRest("your-api-key")
+channel = rest.channels.get("updates:example")
+
+# Example serial; for example from the `serial` property of a `Message` you previously received
+serial = "0123456789-001@abcdefghij:001"
+
+message = await channel.get_message(serial)
+```
+</Code>
+
+## Get message versions 
+
+To retrieve all historical versions of a message, use the `getMessageVersions()` method. This returns a paginated result containing all versions of the message, including the original and all subsequent updates or delete operations, ordered by version.
+
+This operation requires the history [capability](https://ably.com/docs/auth/capabilities.md).
+
+<Code>
+
+### Javascript
+
+```
+const rest = new Ably.Rest({ key: 'your-api-key' });
+const channel = rest.channels.get('updates:example');
+
+const page = await channel.getMessageVersions(msg);
+console.log(`Found ${page.items.length} versions`);
+```
+
+### Nodejs
+
+```
+const rest = new Ably.Rest({ key: 'your-api-key' });
+const channel = rest.channels.get('updates:example');
+
+const page = await channel.getMessageVersions(msg);
+console.log(`Found ${page.items.length} versions`);
+```
+
+### Swift
+
+```
+import Ably
+
+let rest = ARTRest(key: "your-api-key")
+let channel = rest.channels.get("updates:example")
+
+// Example serial; for example from the `serial` property of an `ARTMessage` you previously received
+let serial = "0123456789-001@abcdefghij:001"
+
+channel.getMessageVersions(withSerial: serial) { page, error in
+    if let error = error {
+        print("Failed to get message versions: \(error.message)")
+        return
+    }
+    if let page = page {
+        print("Found \(page.items.count) versions")
+    }
+}
+```
+
+### Java
+
+```
+AblyRest rest = new AblyRest("your-api-key");
+Channel channel = rest.channels.get("updates:example");
+
+// Example serial; for example from the `serial` property of a `Message` you previously received
+String serial = "0123456789-001@abcdefghij:001";
+
+PaginatedResult<Message> page = channel.getMessageVersions(serial);
+System.out.println("Found " + page.items().length + " versions");
+```
+
+### Python
+
+```
+rest = AblyRest("your-api-key")
+channel = rest.channels.get("updates:example")
+
+# Example serial; for example from the `serial` property of a `Message` you previously received
+serial = "0123456789-001@abcdefghij:001"
+
+page = await channel.getMessageVersions(serial)
+print("Found " + len(page.items) + " versions");
+```
+</Code>
+
+## Message version structure 
+
+A published update or delete contains version metadata in the `version` property. The following shows the structure of a message after it has been updated:
+
+<Code>
+
+### Json
+
+```
+{
+  // The top-level serial is a permanent identifier of the message, and remains
+  // the same for all updates and deletes of that message
+  "serial": "01826232498871-001@abcdefghij:001",
+
+  // The clientId of the user who published the original message
+  "clientId": "user123",
+
+  // The timestamp of that original publish
+  "timestamp": 1718195879988,
+
+  // Main payload fields
+  "name": "greeting",
+  "data": "hello world (edited)",
+
+  // The action tells you if it's an original ("message.create"), update,
+  // delete, or annotation summary
+  "action": "message.update",
+
+  "version": {
+    // The serial of the current version. For an original (with an action of
+    // "message.create"), this will be equal to the top-level serial. You can
+    // use this to compare different versions to see which one is more recent
+    "serial": "01826232512345-002@abcdefghij:002",
+
+    // The clientId of the user who made the update
+    "clientId": "user123",
+
+    // The timestamp of this latest version
+    "timestamp": 1718195912345,
+
+    // Update metadata, supplied by the user who published the update
+    "description": "Fixed typo",
+    "metadata": {
+      "reason": "correction"
+    }
+  }
+}
+```
+</Code>
+
+#### Message actions 
+
+The `action` property on a message indicates the type of operation:
+
+| Action | Description |
+| ------ | ----------- |
+| message.create | The original message |
+| message.update | An update to an existing message |
+| message.delete | A deletion of a message |
+| meta | A message originating from ably rather than being published by a user, such as [inband occupancy events](https://ably.com/docs/channels/options.md#occupancy) |
+| message.summary | A message containing the [latest rolled-up summary of annotations](https://ably.com/docs/messages/annotations.md#annotation-summaries) |
+| message.append | An append to an existing message's data |
+## Version ordering 
+
+Both the message `serial` and `version.serial` are lexicographically sortable strings, providing a deterministic ordering of messages and their versions.
+
+To determine which version of a message is newer, compare the `version.serial` values.
+
+In the case of updates or deletes made by different users at similar times, both will be published on the channel, but the one that is assigned the lexicographically-highest `version.serial` will 'win', in the sense that retrieving channel history will eventually always return that version of the message.
+
+## Related Topics
+
+- [Message concepts](https://ably.com/docs/messages.md): Messages contain data and are sent and received through channels.
+- [Message batching](https://ably.com/docs/messages/batch.md): Send messages to multiple channels in a single transaction, or batch messages server-side before sending them to subscribers.
+- [Message annotations](https://ably.com/docs/messages/annotations.md): Annotate messages on a channel with additional metadata.
+
+## Documentation Index
+
+To discover additional Ably documentation:
+
+1. Fetch [llms.txt](https://ably.com/llms.txt) for the canonical list of available pages.
+2. Identify relevant URLs from that index.
+3. Fetch target pages as needed.
+
+Avoid using assumed or outdated documentation paths.

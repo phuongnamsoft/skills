@@ -1,0 +1,378 @@
+# Message history
+
+The history feature enables users to retrieve messages that have been previously sent in a room. [Message persistence](https://ably.com/docs/chat/rooms.md#persistence) is enabled by default for all chat rooms, with messages stored for 30 days. You can extend this retention period up to 365 days by [contacting us](https://ably.com/support).
+
+<Aside data-type="usp">
+Redundant message storage.
+
+Every message is redundantly stored across [multiple isolated datacenters](https://ably.com/docs/platform/architecture/fault-tolerance.md#the-core-layer-stateful-resilience) before acknowledgment, ensuring your chat history is always available when you need it.
+</Aside>
+
+## Retrieve previously sent messages 
+
+<If lang="javascript,swift,kotlin,android">
+Use the <If lang="javascript">[`messages.history()`](https://ably.com/docs/chat/api/javascript/messages.md#history)</If><If lang="swift">[`messages.history()`](https://sdk.ably.com/builds/ably/ably-chat-swift/main/AblyChat/documentation/ablychat/messages/history(withparams:))</If><If lang="kotlin,android">[`messages.history()`](https://sdk.ably.com/builds/ably/ably-chat-kotlin/main/dokka/chat/com.ably.chat/-messages/history.html)</If> method to retrieve messages that have been previously sent to a room. This returns a paginated response, which can be queried further to retrieve the next set of messages.
+</If>
+
+<If lang="react">
+Use the [`history()`](https://sdk.ably.com/builds/ably/ably-chat-js/main/typedoc/interfaces/chat-react.UseMessagesResponse.html#history) method available from the response of the `useMessages` hook to retrieve messages that have been previously sent to a room. This returns a paginated response, which can be queried further to retrieve the next set of messages.
+</If>
+
+<Code>
+
+### Javascript
+
+```
+const historicalMessages = await room.messages.history({ orderBy: OrderBy.NewestFirst, limit: 50 });
+console.log(historicalMessages.items);
+
+if (historicalMessages.hasNext()) {
+  const next = await historicalMessages.next();
+  console.log(next);
+} else {
+  console.log('End of messages');
+}
+```
+
+### React
+
+```
+import { useMessages } from '@ably/chat/react';
+
+const MyComponent = () => {
+  const { history } = useMessages();
+
+  const handleGetMessages = () => {
+    // fetch the last 3 messages, oldest to newest
+    history({ limit: 3, orderBy: OrderBy.OldestFirst })
+      .then((result) =>
+        console.log('Previous messages: ', result.items));
+  };
+
+  return (
+    <div>
+      <button onClick={handleGetMessages}>Get Messages</button>
+    </div>
+  );
+};
+```
+
+### Swift
+
+```
+let paginatedResult = try await room.messages.history(withParams: .init(orderBy: .newestFirst))
+print(paginatedResult.items)
+if let next = try await paginatedResult.next {
+    print(next.items)
+} else {
+    print("End of messages")
+}
+```
+
+### Kotlin
+
+```
+var historicalMessages = room.messages.history(orderBy = OrderBy.NewestFirst)
+println(historicalMessages.items.toString())
+
+// historical messages are paginated, so we can iterate through
+while (historicalMessages.hasNext()) {
+    historicalMessages = historicalMessages.next()
+    println(historicalMessages.items.toString())
+}
+
+println("End of messages")
+```
+
+### Android
+
+```
+var historicalMessages = room.messages.history(orderBy = OrderBy.NewestFirst)
+println(historicalMessages.items.toString())
+
+// historical messages are paginated, so we can iterate through
+while (historicalMessages.hasNext()) {
+    historicalMessages = historicalMessages.next()
+    println(historicalMessages.items.toString())
+}
+
+println("End of messages")
+```
+</Code>
+
+The following optional parameters can be passed when retrieving previously sent messages:
+
+| Parameter | Description | Default |
+| --------- | ----------- | ------- |
+| start | Earliest time to retrieve messages from, as a unix timestamp in milliseconds. Messages with a timestamp equal to, or greater than, this value will be returned. | Earliest available message |
+| end | Latest time to retrieve messages from, as a unix timestamp in milliseconds. Messages with a timestamp less than this value will be returned. | Current time |
+| orderBy | The order in which to retrieve messages from; either `oldestFirst` or `newestFirst`. | `newestFirst` |
+| limit | Maximum number of messages to be retrieved per page, up to 1,000. | 100 |
+
+### Understanding message ordering 
+
+The `orderBy` parameter determines the messages retrieved and their return order:
+
+| Order | Retrieves | Returns | Use case |
+| ----- | --------- | ------- | -------- |
+| `newestFirst` (default) | Most recent messages | `[newest, ..., oldest]` | Standard chat application |
+| `oldestFirst` | Oldest messages from room start | `[oldest, ..., newest]` | Archives, exports, admin tools |
+
+For the majority of chat UIs, the default behavior of  `newestFirst` will be correct. This retrieves messages from most recent to oldest, which you can then reverse to display the newest message at the bottom of the UI.
+
+## Retrieve messages sent prior to subscribing 
+
+Retrieve historical messages sent before subscribing using `historyBeforeSubscribe()`. Messages are returned in order, from the most recent to the oldest (newestFirst). This is useful for providing conversational context when a user joins or rejoins a room, ensuring continuous message history without overlap.
+
+<If lang="javascript,swift,kotlin">
+Use the <If lang="javascript">[`historyBeforeSubscribe()`](https://ably.com/docs/chat/api/javascript/messages.md#historyBeforeSubscribe)</If><If lang="swift">[`historyBeforeSubscribe(withParams:)`](https://sdk.ably.com/builds/ably/ably-chat-swift/main/AblyChat/documentation/ablychat/messagesubscriptionresponse/historybeforesubscribe%28withparams%3A%29)</If><If lang="kotlin">[`historyBeforeSubscribe()`](https://sdk.ably.com/builds/ably/ably-chat-kotlin/main/dokka/chat/com.ably.chat/-messages-subscription/history-before-subscribe.html)</If> function returned as part of a [message subscription](https://ably.com/docs/chat/rooms/messages.md#subscribe) response to only retrieve messages that were received before the listener was subscribed to the room. This returns a paginated response, which can be queried further to retrieve the next set of messages.
+</If>
+
+<If lang="android">
+Use the [`historyBeforeSubscribe()`](https://sdk.ably.com/builds/ably/ably-chat-kotlin/main/dokka/chat/com.ably.chat/-messages-subscription/history-before-subscribe.html) function returned as part of a [message subscription](https://ably.com/docs/chat/rooms/messages.md#subscribe) response to only retrieve messages that were received before the listener was subscribed to the room. This returns a paginated response, which can be queried further to retrieve the next set of messages.
+</If>
+
+<If lang="react">
+Use the [`historyBeforeSubscribe()`](https://sdk.ably.com/builds/ably/ably-chat-js/main/typedoc/interfaces/chat-react.UseMessagesResponse.html#historyBeforeSubscribe) method available from the response of the `useMessages` hook to only retrieve messages that were received before the listener subscribed to the room. As long as a defined value is provided for the listener, and there are no message discontinuities, `historyBeforeSubscribe()` will return messages from the same point across component renders. If the listener becomes undefined, the subscription to messages will be removed. If you subsequently redefine the listener then `historyBeforeSubscribe()` will return messages from the new point of subscription. This returns a paginated response, which can be queried further to retrieve the next set of messages.
+</If>
+
+<Code>
+
+### Javascript
+
+```
+const { historyBeforeSubscribe } = room.messages.subscribe(() => {
+  console.log('New message received');
+});
+
+const historicalMessages = await historyBeforeSubscribe({ limit: 50 });
+console.log(historicalMessages.items);
+if (historicalMessages.hasNext()) {
+  const next = await historicalMessages.next();
+  console.log(next);
+} else {
+  console.log('End of messages');
+}
+```
+
+### React
+
+```
+import { useEffect, useState } from 'react';
+import { useMessages } from '@ably/chat/react';
+
+const MyComponent = () => {
+  const [loading, setLoading] = useState(true);
+
+  const { historyBeforeSubscribe } = useMessages({
+    listener: (message) => {
+      console.log('Received message: ', message);
+    },
+    onDiscontinuity: (error) => {
+      console.log('Discontinuity detected:', error);
+      setLoading(true);
+    },
+  });
+
+  useEffect(() => {
+    // once the listener is subscribed, `historyBeforeSubscribe` will become available
+    if (historyBeforeSubscribe && loading) {
+      historyBeforeSubscribe({ limit: 10 }).then((result) => {
+        console.log('Previous messages: ', result.items);
+        setLoading(false);
+      });
+    }
+  }, [historyBeforeSubscribe, loading]);
+
+  return <div>...</div>;
+};
+```
+
+### Swift
+
+```
+let messagesSubscription = try await room.messages.subscribe()
+let paginatedResult = try await messagesSubscription.historyBeforeSubscribe(withParams: .init(limit: 50))
+print(paginatedResult.items)
+if let next = try await paginatedResult.next {
+    print(next.items)
+} else {
+    print("End of messages")
+}
+```
+
+### Kotlin
+
+```
+val subscription = room.messages.subscribe {
+    println("New message received")
+}
+
+var historicalMessages = subscription.historyBeforeSubscribe(limit = 50)
+println(historicalMessages.items.toString())
+
+while (historicalMessages.hasNext()) {
+    historicalMessages = historicalMessages.next()
+    println(historicalMessages.items.toString())
+}
+
+println("End of messages")
+```
+
+### Android
+
+```
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.*
+import androidx.compose.runtime.*
+import com.ably.chat.MessagesSubscription
+import com.ably.chat.Room
+
+@Composable
+fun HistoryBeforeSubscribeComponent(room: Room) {
+  var messages by remember { mutableStateOf<List<String>>(emptyList()) }
+  var subscription by remember { mutableStateOf<MessagesSubscription?>(null) }
+
+  DisposableEffect(room) {
+    subscription = room.messages.subscribe {
+      println("New message received")
+    }
+
+    onDispose {
+      subscription?.unsubscribe()
+    }
+  }
+
+  LaunchedEffect(subscription) {
+    subscription?.let { sub ->
+      var historicalMessages = sub.historyBeforeSubscribe(limit = 50)
+      println(historicalMessages.items.toString())
+      messages = historicalMessages.items.map { it.text }
+
+      while (historicalMessages.hasNext()) {
+        historicalMessages = historicalMessages.next()
+        println(historicalMessages.items.toString())
+        messages = messages + historicalMessages.items.map { it.text }
+      }
+
+      println("End of messages")
+    }
+  }
+
+  // Display messages in UI
+  Column {
+    messages.forEach { message ->
+      Text(message)
+    }
+  }
+}
+```
+</Code>
+
+The following optional parameters can be passed when retrieving messages before subscribing:
+
+| Parameter | Description | Default |
+| --------- | ----------- | ------- |
+| start | Earliest time to retrieve messages from, as a unix timestamp in milliseconds. Messages with a timestamp equal to, or greater than, this value will be returned. | Earliest available message |
+| end | Latest time to retrieve messages from, as a unix timestamp in milliseconds. Messages with a timestamp less than this value will be returned. | Current time |
+| limit | Maximum number of messages to be retrieved per page, up to 1,000. | 100 |
+
+<If lang="android">
+
+## Messages pagination 
+
+Alternatively, you can use the [`collectAsPagingMessagesState()`](https://sdk.ably.com/builds/ably/ably-chat-kotlin/main/dokka/chat-extensions-compose/com.ably.chat.extensions.compose/collect-as-paging-messages-state.html) composable function to observe messages with automatic pagination support.
+
+This function provides a complete solution for displaying chat messages in Jetpack Compose by:
+- Subscribing to new messages in real-time and adding them to the list
+- Handling message updates and deletions automatically
+- Listening to [message reaction](https://ably.com/docs/chat/rooms/message-reactions.md) events and updating messages with reaction summaries
+- Managing pagination when scrolling near the end of the list using `historyBeforeSubscribe()`
+- Handling [discontinuities](https://ably.com/docs/chat/rooms/messages.md#discontinuity) by clearing and reloading messages
+- Only fetching messages when the room is in the attached state
+- Cleaning up resources when the composable leaves the composition
+
+The function accepts two optional parameters:
+- `scrollThreshold`: The number of items remaining before reaching the last item at which fetching the next page is triggered (default: 10)
+- `fetchSize`: The number of messages to load per page (default: 100)
+
+The returned [`PagingMessagesState`](https://sdk.ably.com/builds/ably/ably-chat-kotlin/main/dokka/chat-extensions-compose/com.ably.chat.extensions.compose/-paging-messages-state/index.html) provides:
+- `loaded`: A list of messages in reverse chronological order (newest first)
+- `listState`: A `LazyListState` for controlling the scroll position and triggering automatic pagination
+- `loading`: Whether a loading operation is in progress
+- `hasMore`: Whether there are more messages to load (returns `false` before the first page is fetched)
+- `error`: Any error encountered during loading (of type `ErrorInfo`)
+- `refresh()`: A function to clear the error state and retry loading
+
+<Code>
+
+### Android
+
+```
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.Button
+import androidx.compose.material.CircularProgressIndicator
+import androidx.compose.material.Text
+import androidx.compose.runtime.Composable
+import com.ably.chat.Room
+import com.ably.chat.annotations.ExperimentalChatApi
+import com.ably.chat.extensions.compose.collectAsPagingMessagesState
+
+@OptIn(ExperimentalChatApi::class)
+@Composable
+fun MessagesComponent(room: Room) {
+  val pagingMessagesState = room.collectAsPagingMessagesState(
+    scrollThreshold = 10,
+    fetchSize = 50,
+  )
+
+  // Handle error state
+  pagingMessagesState.error?.let { error ->
+    Text("Error: ${error.message}")
+    Button(onClick = { pagingMessagesState.refresh() }) {
+      Text("Retry")
+    }
+  }
+
+  LazyColumn(
+    reverseLayout = true,
+    state = pagingMessagesState.listState,
+  ) {
+    items(
+      items = pagingMessagesState.loaded,
+      key = { it.serial },
+    ) { message ->
+      Text("${message.clientId}: ${message.text}")
+    }
+
+    // Show loading indicator when fetching messages
+    if (pagingMessagesState.loading) {
+      item { CircularProgressIndicator() }
+    }
+  }
+}
+```
+</Code>
+</If>
+
+## Related Topics
+
+- [Messages](https://ably.com/docs/chat/rooms/messages.md): Send, update, delete, and receive messages in chat rooms.
+- [Presence](https://ably.com/docs/chat/rooms/presence.md): Use presence to see which users are online and their user status.
+- [Occupancy](https://ably.com/docs/chat/rooms/occupancy.md): Use occupancy to see how many users are in a room.
+- [Message reactions](https://ably.com/docs/chat/rooms/message-reactions.md): React to chat messages
+- [Typing indicators](https://ably.com/docs/chat/rooms/typing.md): Display typing indicators in a room so that users can see when someone else is writing a message.
+- [Room reactions](https://ably.com/docs/chat/rooms/reactions.md): Enable users to send reactions at the room level, based on what is happening in your application, such as a goal being scored in your livestream.
+- [Share media](https://ably.com/docs/chat/rooms/media.md): Share media such as images, videos, or files in a chat room.
+- [Message replies](https://ably.com/docs/chat/rooms/replies.md): Add reply functionality to messages in a chat room.
+
+## Documentation Index
+
+To discover additional Ably documentation:
+
+1. Fetch [llms.txt](https://ably.com/llms.txt) for the canonical list of available pages.
+2. Identify relevant URLs from that index.
+3. Fetch target pages as needed.
+
+Avoid using assumed or outdated documentation paths.

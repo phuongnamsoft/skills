@@ -1,0 +1,80 @@
+# Free package
+
+The Free package is intended for developers to try out Ably. They can freely experiment with its features and build a proof of concept. No credit card is required to sign up and there's no time limit on how long you can try it for.
+
+## Features 
+
+The Free package includes the following units of consumption:
+
+| Limit | Free |
+| ----- | ---- |
+| Message rate (per second) | 500 |
+| Messages (per month) | 6,000,000 |
+| Concurrent channels | 200 |
+| Concurrent connections | 200 |
+
+Free package users also have access to the following features:
+
+* Google and GitHub SSO
+
+## Pricing 
+
+There is no cost associated with the Free package, and you don't need to provide a credit card in order to use the service.
+
+## Limits 
+
+[Compare the limits](https://ably.com/docs/platform/pricing/limits.md) associated with each package to see those available on the Free package.
+
+## Support 
+
+Free package support includes Ably's best effort Service Level Objective (SLO) and access to community support, including [Discord](https://discord.gg/g8yqePUVDn) and [Stack Overflow](https://stackoverflow.com/questions/tagged/ably-realtime).
+
+## Upgrade from Free to Standard or Pro 
+
+To upgrade your account from a Free package to a Standard or Pro package:
+
+1. Ensure you are the [account owner](https://ably.com/docs/platform/account/users.md).
+2. Log in to your [account](https://ably.com/login) and select **Billing** from the **Account** menu.
+3. Choose the plan you wish to upgrade to and follow the instructions. Upgrades take effect immediately.
+
+Note that your first invoice will be issued at the start of the following calendar month. It covers your usage from the point of upgrade up until the end of that month. All subsequent invoices will follow the same pattern of billing for the previous month's usage. The base package price will be charged pro-rata from the point in the month that you upgraded.
+
+Once you upgrade to a [Standard](https://ably.com/docs/platform/pricing/standard.md) or [Pro](https://ably.com/docs/platform/pricing/pro.md) package, your usage is counted from that point onwards. For example, if you upgrade in the middle of the month to a pay per minute model, you are charged for the first message you send after upgrading, not after the 6,000,000 messages allowed on the Free package.
+
+## Upgrade from Free to Enterprise 
+
+To upgrade your account from a Free package to an [Enterprise package](https://ably.com/docs/platform/pricing/enterprise.md), [contact us](https://ably.com/contact?cta=enterprise_package) to discuss your options.
+
+## Downgrade 
+
+To downgrade your account to a Free package:
+
+1. Ensure you are the [account owner](https://ably.com/docs/platform/account/users.md).
+2. Log in to your [account](https://ably.com/login) and select **Billing** from the **Account** menu.
+3. Click the **Downgrade** button.
+
+If you downgrade to the [Free package](https://ably.com/docs/platform/pricing/free.md), you will remain on your previous package with its limits and benefits until the end of your billing cycle (on the 1st of the month). At the start of the following month, you will receive a final invoice that includes the full package fee and any usage for the previous month.
+
+## Close your account 
+
+If you're using the Free package, you can [close your account](https://ably.com/docs/platform/account/users.md#close) at any time.
+
+<Aside data-type='note'>
+Be aware that this will permanently delete all information associated with your account.
+</Aside>
+
+## Related Topics
+
+- [Standard](https://ably.com/docs/platform/pricing/standard.md): Explore the features and cost of Ably's Standard package.
+- [Pro](https://ably.com/docs/platform/pricing/pro.md): Explore the features and cost of Ably's Pro package.
+- [Enterprise](https://ably.com/docs/platform/pricing/enterprise.md): Explore the features of Ably's Enterprise package.
+
+## Documentation Index
+
+To discover additional Ably documentation:
+
+1. Fetch [llms.txt](https://ably.com/llms.txt) for the canonical list of available pages.
+2. Identify relevant URLs from that index.
+3. Fetch target pages as needed.
+
+Avoid using assumed or outdated documentation paths.

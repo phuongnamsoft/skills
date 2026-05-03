@@ -1,0 +1,131 @@
+# Push notifications FAQs
+
+Answers to frequently asked questions about Ably's push notification service.
+
+## Connection and network 
+
+FAQs related to network connectivity and debugging connection issues.
+
+### How can I confirm network access to Ably? 
+
+Use the following `curl` command to debug connection issues. It retrieves the current time from the Ably `REST` `API` and provides detailed output about the `TLS` key exchange, `SSL` certificate verification, and `HTTP` headers:
+
+<Code>
+
+#### Bash
+
+```
+curl -v -s -w "time_namelookup: %{time_namelookup}
+time_connect: %{time_connect}
+time_appconnect: %{time_appconnect}
+time_pretransfer: %{time_pretransfer}
+time_redirect: %{time_redirect}
+time_starttransfer: %{time_starttransfer}
+time_total: %{time_total}" \
+https://rest.ably.io/time
+```
+</Code>
+
+Repeat this process for fallback hosts to verify network connectivity to them. Fallback hosts are used automatically if the primary endpoint fails.
+
+The output includes items prefixed with `*` (certificate exchange), `>` (request), and `<` (response). Timings are computed from the `-w` statistics and help identify bottlenecks in the connection process.
+
+## Platform configuration 
+
+FAQs related to configuring push notifications for specific platforms.
+
+### For Apple's APNs, what is the sandbox endpoint? 
+
+Apple provides a [sandbox endpoint](https://ably.com/docs/faq/push-faqs.md#apns-sandbox) for testing push notifications. This ensures device IDs in that environment do not work in production.
+
+Customers often have a test/sandbox app using the `APNs` sandbox endpoint and a production app that does not. When setting up [push notifications](https://ably.com/docs/push.md) in your dashboard, enable the sandbox endpoint in the `APNs` settings if you intend to use it.
+
+## Billing and limits 
+
+FAQs related to push notification costs and connection limits.
+
+### Do push subscriptions count as connections? 
+
+No. [Push notifications](https://ably.com/docs/push.md) do not require a device or browser to stay connected to Ably, so they do not count as a [connection](https://ably.com/docs/connect.md).
+
+However, [publishing](https://ably.com/docs/channels.md#publish) a push notification via a [channel](https://ably.com/docs/channels.md) activates that channel. Therefore, your concurrent (peak) channel count includes the number of channels you simultaneously publish to.
+
+### Does Ably charge for push notifications? 
+
+Yes. Each push notification delivered to a device counts as one normal [message](https://ably.com/docs/messages.md).
+
+## Troubleshooting 
+
+FAQs related to debugging and resolving push notification issues.
+
+### How do I debug push notifications? 
+
+If you are not receiving expected push notifications, the issue may lie with Ably, `FCM`, `APNs`, or device configuration.
+
+#### Verify device registration with Ably
+
+Follow these steps to check if your device is correctly registered with Ably:
+
+| Step | Description | Action/State |
+|------|-------------|--------------|
+| Check registration | Go to Ably dashboard > Notifications > Device inspector. Search using `deviceId` or [`clientId`](https://ably.com/docs/auth/identified-clients.md). | - |
+| Device states | Registered and should receive notifications. Test using the push inspector in the Notifications tab or test using the `REST` `API` to publish directly to the `deviceId`. | **ACTIVE** |
+| Device states | Indicates an error "registration expired" if the app was uninstalled. | **FAILED** |
+| No registration Found | Enable verbose logs and retry the push registration process to view Ably push `API` requests. | - |
+
+#### Check for errors
+
+Errors publishing to `FCM` or `APNs` are recorded in the meta channel `[meta]log:push`.
+
+| Method | Description |
+|--------|-------------|
+| Subscribe | Check the application-wide events in the dev console or subscribe to `[meta]log:push`. |
+| History | Check the meta channel history via the History `API`. |
+| Stats | Check the Notifications section of the dashboard for delivery success rates. |
+
+If there are no errors, the notification was successfully sent to the push provider.
+
+#### Specific errors
+
+| Platform | Description | Error |
+|----------|-------------|-------|
+| APNs | Ensure the environment in your `.entitlements` file matches the Ably dashboard settings. Debug applications use the sandbox/development `APNs` server. You must enable "Use `APNs` sandbox environment" in the Ably dashboard. Changing `aps-environment` to production in `.entitlements` does not force a debug app to use the production server. | Environment Mismatch |
+| APNs | The bundle ID of the token or certificate uploaded to Ably does not match the bundle ID in your Xcode project. | `DeviceTokenNotForTopic` |
+| APNs | The `APNs` configuration in Ably has an empty "Topic Header". This is automatically extracted from uploaded certificates but must be added manually if using token authentication. | no valid topic header for APNs |
+| FCM | The uploaded `JSON` file is not in the expected service account key format. | `FcmTransport` not configured |
+| FCM | The Firebase Cloud Messaging API (V1) is not enabled in your Google Cloud project, or the service account lacks permissions (`cloudmessaging.messages.create` denied). | 403 Forbidden |
+| FCM | The device is unregistered from `FCM` (app uninstalled) but remains registered in Ably. | 404 NOT_FOUND (UNREGISTERED) |
+| FCM | The device is likely in a failed state or already unregistered. Check the status via the push admin `API`. | 404 Unable to get device; not found |
+| FCM | The payload format is invalid for the `HTTP` v1 `API` (nested `JSON` or integers where strings are required). | 400 Bad Request (INVALID_ARGUMENT) |
+| FCM | You are using the legacy `FCM` `API`. You must create a service account key and upload the `JSON` to the Ably dashboard to use the `HTTP` v1 `API`. | DeprecatedApi |
+| Web Push | A subscription with a different `applicationServerKey` (or `gcm_sender_id`) already exists. Unsubscribe and resubscribe to resolve. | Failed to register service worker |
+| Web Push | If the browser was previously registered with a different VAPID key (from a third-party SDK), remove the permission in browser settings (for Chrome: Settings > Privacy and security > Site Settings > Notifications) and try again. | Browser Error |
+
+### Why are my push notifications duplicated? 
+
+Consistent duplication on a specific device usually indicates both a `deviceId` and a [`clientId`](https://ably.com/docs/auth/identified-clients.md) subscription to the push [channel](https://ably.com/docs/channels.md). Remove one to prevent duplication.
+
+- DeviceId subscriptions: Deliver to a single device.
+- [ClientId subscriptions](https://ably.com/docs/auth/identified-clients.md): Deliver to all devices identified by that `clientId`.
+
+### Why can I not publish push notifications on channels? 
+
+If you're unable to [publish](https://ably.com/docs/channels.md#publish) push notifications to [channels](https://ably.com/docs/channels.md), this is typically due to configuration or permission issues. The following are possible reasons for this issue:
+
+1. [Rules](https://ably.com/docs/channels.md#rules): Channels must be explicitly enabled for push notifications via rules. They are disabled by default.
+2. [Permissions](https://ably.com/docs/auth/capabilities.md): The publisher must have permission to publish to that channel.
+3. Invalid Payload: If the push notification payload in the `extras` field is invalid, the message may be rejected immediately.
+
+## Related Topics
+
+- [Pub/Sub](https://ably.com/docs/faq.md): Complete collection of Ably FAQ answers covering SDK issues, connection troubleshooting, configuration problems, and technical solutions.
+
+## Documentation Index
+
+To discover additional Ably documentation:
+
+1. Fetch [llms.txt](https://ably.com/llms.txt) for the canonical list of available pages.
+2. Identify relevant URLs from that index.
+3. Fetch target pages as needed.
+
+Avoid using assumed or outdated documentation paths.

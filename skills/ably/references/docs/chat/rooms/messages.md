@@ -1,0 +1,1097 @@
+# Messages
+
+Send, update, delete, and receive messages in a chat room with any number of participants. Users subscribe to messages by registering a listener, and send messages to all users that are subscribed to receive them.
+
+A user can also update or delete a message, all users that are subscribed to the room will be notified of the changes.
+
+<Aside data-type='note'>
+  To support updates, deletions, and [reactions](https://ably.com/docs/chat/rooms/message-reactions.md), [message persistence](https://ably.com/docs/chat/rooms.md#persistence) is enabled by default for all chat rooms.
+</Aside>
+
+## Subscribe to messages 
+
+<If lang="javascript,swift,kotlin">
+Subscribe to receive messages in a room by registering a listener. Use the <If lang="javascript">[`messages.subscribe()`](https://ably.com/docs/chat/api/javascript/messages.md#subscribe)</If><If lang="swift">[`messages.subscribe()`](https://sdk.ably.com/builds/ably/ably-chat-swift/main/AblyChat/documentation/ablychat/messages/subscribe%28%29-360z1)</If><If lang="kotlin">[`messages.subscribe()`](https://sdk.ably.com/builds/ably/ably-chat-kotlin/main/dokka/chat/com.ably.chat/-messages/subscribe.html)</If> method in a room to receive all messages that are sent to it:
+</If>
+
+<If lang="android">
+You can use [`messages.asFlow()`](https://sdk.ably.com/builds/ably/ably-chat-kotlin/main/dokka/chat/com.ably.chat/as-flow.html) to receive new messages:
+</If>
+
+<If lang="react">
+Subscribe to messages with the [`useMessages`](https://sdk.ably.com/builds/ably/ably-chat-js/main/typedoc/functions/chat-react.useMessages.html) hook. Supply a listener and the hook will automatically subscribe to message events sent to the room. As long as a defined value is provided, the subscription will persist across renders. If the listener value is undefined, the subscription will be removed until it becomes defined again.
+
+Providing a listener will also enable you to retrieve messages that have been [previously sent to the room](https://ably.com/docs/chat/rooms/history.md).
+</If>
+
+<Code>
+
+### Javascript
+
+```
+const {unsubscribe} = room.messages.subscribe((event) => {
+  console.log(event.message);
+});
+```
+
+### React
+
+```
+import { useState } from 'react';
+import { useMessages } from '@ably/chat/react';
+
+const MyComponent = () => {
+  useMessages({
+    listener: (event) => {
+      console.log('Received message: ', event.message);
+    },
+  });
+
+  return <div>...</div>;
+};
+```
+
+### Swift
+
+```
+let messagesSubscription = try await room.messages.subscribe()
+for await message in messagesSubscription {
+    print("Message received: \(message)")
+}
+```
+
+### Kotlin
+
+```
+val subscription = room.messages.subscribe { messageEvent: ChatMessageEvent ->
+    println(messageEvent.message.toString())
+}
+```
+
+### Android
+
+```
+import androidx.compose.runtime.*
+import com.ably.chat.Room
+import com.ably.chat.asFlow
+
+@Composable
+fun SimpleMessagesComponent(room: Room) {
+  LaunchedEffect(room) {
+    room.messages.asFlow().collect { event ->
+      println("Received message: ${event.message}")
+    }
+  }
+}
+```
+</Code>
+
+### Message structure 
+
+The following is the structure of a message:
+
+<Code>
+
+#### Json
+
+```
+{
+  "serial": "01826232498871-001@abcdefghij:001",
+  "clientId": "basketLover014",
+  "text": "What a shot!",
+  "headers": {},
+  "metadata": {},
+  "userClaim": "{\"display_name\":\"BasketFan\",\"role\":\"member\"}",
+  "timestamp": new Date("2024-06-12T11:37:59.988Z"),
+  "action": "message.create",
+  "version": {
+    "serial": "01826232498871-001@abcdefghij:001",
+    "timestamp": new Date("2024-06-12T11:37:59.988Z")
+  }
+}
+```
+</Code>
+
+The following are the properties of a message:
+
+| Property | Description | Type |
+| -------- | ----------- | ---- |
+| `serial` | An Ably-generated ID used to uniquely identify the message. By comparing it to others it provides a deterministic global ordering of messages. | `String` |
+| `clientId` | The client identifier of the user that created the message. | `String` |
+| `text` | The message contents. | `String` |
+| `headers` | Optional headers for adding additional information to a message, such as the relative timestamp of a livestream video, or flagging a message as important. Do not use the headers for authoritative information. There is no server-side validation. When reading headers treat them like user input. | `Object` |
+| `metadata` | Optional additional metadata about the message, such as animations, effects or links to other resources such as images. This information is not read by Ably. Do not use metadata for authoritative information. There is no server-side validation. When reading metadata treat it like user input. | `Object` |
+| `userClaim` | A server-signed [user claim](https://ably.com/docs/chat/setup.md#user-claims) attached to this message, derived from the publishing user's [JWT](https://ably.com/docs/chat/setup.md#set-user-claims). Unlike `headers` and `metadata`, this value is read-only and cannot be set by clients. | `String` or `undefined` |
+| `timestamp` | The time the message was created. | `Date` |
+| `action` | The latest action performed on this message, such as `message.create`, `message.update` or `message.delete`.  | `String` |
+| `version` | Contains information about the current version of the message. For `message.create` actions, only `serial` and `timestamp` are set. For `message.update` and `message.delete` actions, additional fields are included. | `Object` |
+| `version.serial` | An Ably-generated ID used to uniquely identify the version of the message. It provides a deterministic global ordering of message versions. The `version.serial` is identical to `serial` if the action is `message.create`. | `String` |
+| `version.timestamp` | The time the action was performed. It will be identical to `timestamp` if the action is a `message.create`. | `Date` |
+| `version.clientId` | The client identifier of the user that created this version of the message. Only set for `message.update` and `message.delete` actions. | `String` or `undefined` |
+| `version.description` | Optional description provided by the client that created this message version. Only set for `message.update` and `message.delete` actions. | `String` or `undefined` |
+| `version.metadata` | Optional metadata provided by the client that created this message version. Only set for `message.update` and `message.delete` actions. | `Object` or `undefined` |
+
+See [below](#global-ordering) for more information on how to apply deterministic global ordering to the chat messages in your application.
+
+### Unsubscribe from messages 
+
+<If lang="javascript,kotlin">
+Use the `unsubscribe()` function returned in the `subscribe()` response to remove a chat message listener:
+</If>
+
+<If lang="android">
+`messages.asFlow()` handles lifecycle and cleanup automatically.
+</If>
+
+<If lang="swift">
+You don't need to handle removing listeners, as this is done automatically by the SDK.
+</If>
+
+<If lang="react">
+When you unmount the component that is using the `useMessages` hook, it will automatically handle unsubscribing any associated listeners registered to receive messages.
+</If>
+
+<If lang="javascript,kotlin">
+<Code>
+
+#### Javascript
+
+```
+// Initial subscription
+const { unsubscribe } = room.messages.subscribe((event) => console.log(event.message));
+
+// To remove the listener
+unsubscribe();
+```
+
+#### Kotlin
+
+```
+// Initial subscription
+val (unsubscribe) = room.messages.subscribe { event -> println(event.message) }
+
+// To remove the listener
+unsubscribe()
+```
+</Code>
+</If>
+
+<Aside data-type='note'>
+There is a difference between unsubscribing from messages and detaching from a room that is important to understand.
+
+Messages are sent to users as soon as they [attach](https://ably.com/docs/chat/rooms.md#attach) to a room, irrespective of whether a listener has been registered by calling `subscribe()`. Calling `unsubscribe()` only deregisters the listener.
+
+The [`detach()`](https://ably.com/docs/chat/rooms.md#detach) method detaches a user from the room. At that point a user will no longer receive any messages that are sent to the room.
+</Aside>
+
+## Handle discontinuity 
+
+If a client experiences a period of disconnection longer than two minutes, some messages may be missed. The Chat SDK provides a Chat-specific `onDiscontinuity()` handler at the room level to detect when message continuity is lost, so that you can recover missed messages using [history](https://ably.com/docs/chat/rooms/history.md).
+
+Register the handler when setting up your room:
+
+<Code>
+
+### Javascript
+
+```
+const { off } = room.onDiscontinuity((reason) => {
+  console.log('Discontinuity detected:', reason);
+  // Re-fetch messages from the point of re-subscription
+  room.messages.historyBeforeSubscribe({ limit: 50 }).then((history) => {
+    // Refresh your message list with recovered messages
+  });
+});
+
+// To remove the listener
+off();
+```
+
+### React
+
+```
+import { useMessages } from '@ably/chat/react';
+
+const MyComponent = () => {
+  useMessages({
+    onDiscontinuity: (error) => {
+      console.log('Discontinuity detected:', error);
+      // Trigger recovery, for example re-fetch message history
+    },
+  });
+
+  return <div>...</div>;
+};
+```
+
+### Swift
+
+```
+let subscription = room.onDiscontinuity()
+for await error in subscription {
+  print("Discontinuity detected: \(error)")
+  // Fetch missed messages and merge into your message list
+}
+```
+
+### Kotlin
+
+```
+val (off) = room.onDiscontinuity { reason: ErrorInfo ->
+  println("Discontinuity detected: $reason")
+  // Fetch missed messages and merge into your message list
+}
+
+// To remove the listener
+off()
+```
+</Code>
+
+<Aside data-type='note'>
+`onDiscontinuity` is a Chat-specific handler. It fires at the room level, covering messages, presence, reactions, and typing indicators. Do not use the Pub/Sub `resumed` flag directly on Chat room channels. For complete recovery patterns covering both Chat and Pub/Sub, see the [handling discontinuity](https://ably.com/docs/chat/guides/handling-discontinuity.md) guide.
+</Aside>
+
+## Send a message 
+
+<If lang="javascript,swift,kotlin,android">
+Use the <If lang="javascript">[`messages.send()`](https://ably.com/docs/chat/api/javascript/messages.md#send)</If><If lang="swift">[`messages.send()`](https://sdk.ably.com/builds/ably/ably-chat-swift/main/AblyChat/documentation/ablychat/messages/send%28withparams%3A%29)</If><If lang="kotlin,android">[`messages.send()`](https://sdk.ably.com/builds/ably/ably-chat-kotlin/main/dokka/chat/com.ably.chat/-messages/send.html)</If> method to send a message in a chat room. All users that are [subscribed](#subscribe) to messages on that room will receive it:
+</If>
+
+<If lang="react">
+Use the [`sendMessage()`](https://sdk.ably.com/builds/ably/ably-chat-js/main/typedoc/interfaces/chat-react.UseMessagesResponse.html#sendmessage) method available from the response of the `useMessages` hook to send a message to the room:
+</If>
+
+<Code>
+
+### Javascript
+
+```
+await room.messages.send({text: 'hello'});
+```
+
+### React
+
+```
+import { useMessages } from '@ably/chat/react';
+
+const MyComponent = () => {
+  const { sendMessage } = useMessages();
+
+  const handleMessageSend = () => {
+    sendMessage({ text: 'Hello, World!' });
+  };
+
+  return (
+    <div>
+      <button onClick={handleMessageSend}>Send Message</button>
+    </div>
+  );
+};
+```
+
+### Swift
+
+```
+let message = try await room.messages.send(withParams: .init(text: "hello"))
+```
+
+### Kotlin
+
+```
+room.messages.send(text = "hello")
+```
+
+### Android
+
+```
+import androidx.compose.material.*
+import androidx.compose.runtime.*
+import com.ably.chat.Room
+import kotlinx.coroutines.launch
+
+@Composable
+fun MyComponent(room: Room) {
+  val coroutineScope = rememberCoroutineScope()
+
+  Button(onClick = {
+    coroutineScope.launch {
+      room.messages.send(text = "hello")
+    }
+  }) {
+    Text("Send Message")
+  }
+}
+```
+</Code>
+
+## Get a single message 
+
+<If lang="javascript,swift,kotlin,android">
+Use the <If lang="javascript">[`messages.get()`](https://ably.com/docs/chat/api/javascript/messages.md#get)</If><If lang="swift">[`messages.get()`](https://sdk.ably.com/builds/ably/ably-chat-swift/main/AblyChat/documentation/ablychat/messages/get%28withserial:%29)</If><If lang="kotlin,android">[`messages.get()`](https://sdk.ably.com/builds/ably/ably-chat-kotlin/main/dokka/chat/com.ably.chat/-messages/get.html)</If> method to get a message in a chat room using message serial.
+</If>
+
+<If lang="react">
+Use the [`getMessage()`](https://sdk.ably.com/builds/ably/ably-chat-js/main/typedoc/interfaces/chat-react.UseMessagesResponse.html#getmessage) method available from the response of the `useMessages` hook to send a message to the room:
+</If>
+
+<Code>
+
+### Javascript
+
+```
+await room.messages.get('01726232498871-001@abcdefghij:001');
+```
+
+### React
+
+```
+import { useMessages } from '@ably/chat/react';
+
+const MyComponent = () => {
+  const { getMessage } = useMessages();
+
+  const handleMessageGet = () => {
+    getMessage('01726232498871-001@abcdefghij:001');
+  };
+
+  return (
+    <div>
+      <button onClick={handleMessageGet}>Get Message</button>
+    </div>
+  );
+};
+```
+
+### Swift
+
+```
+let message = try await room.messages.get(withSerial: "01726232498871-001@abcdefghij:001")
+```
+
+### Kotlin
+
+```
+val message = room.messages.get("01726232498871-001@abcdefghij:001")
+```
+
+### Android
+
+```
+val message = room.messages.get("01726232498871-001@abcdefghij:001")
+```
+</Code>
+
+
+
+## Update a message 
+
+<If lang="javascript,swift,kotlin,android">
+Use the <If lang="javascript">[`messages.update()`](https://ably.com/docs/chat/api/javascript/messages.md#update)</If><If lang="swift">[`messages.update()`](https://sdk.ably.com/builds/ably/ably-chat-swift/main/AblyChat/documentation/ablychat/messages/update%28withserial:params:details:%29)</If><If lang="kotlin,android">[`messages.update()`](https://sdk.ably.com/builds/ably/ably-chat-kotlin/main/dokka/chat/com.ably.chat/-messages/update.html)</If> method to update a message in a chat room. All users that are [subscribed](#subscribe) to messages on that room will receive the update:
+</If>
+
+<If lang="react">
+Use the [`updateMessage()`](https://sdk.ably.com/builds/ably/ably-chat-js/main/typedoc/interfaces/chat-react.UseMessagesResponse.html#updatemessage) method available from the response of the `useMessages` hook to update a message in the room:
+</If>
+
+<Code>
+
+### Javascript
+
+```
+import { Message } from '@ably/chat';
+const message: Message
+const updatedMessage = message.copy({text: "my updated text"})
+await room.messages.update(updatedMessage.serial, updatedMessage, { description: "Message update by user" });
+```
+
+### React
+
+```
+import { Message } from '@ably/chat';
+import { useMessages } from '@ably/chat/react';
+
+const MyComponent = () => {
+  const { updateMessage } = useMessages();
+  const [message, setMessage] = useState<Message>();
+
+  const handleMessageUpdate = (msg: Message) => {
+    updateMessage(msg.serial, msg.copy({ text: "my updated text" }), { description: "Message update by user" })
+    .then((updatedMsg: Message) => {
+      console.log('Message updated:', updatedMsg);
+    })
+    .catch((error) => {
+      console.error('Error updating message: ', error);
+    });
+  };
+  return (
+    <div>
+      <button onClick={() => handleMessageUpdate(message)}>Update Message</button>
+    </div>
+  );
+};
+```
+
+### Swift
+
+```
+let originalMessage: Message
+let updatedMessage = try await room.messages.update(
+  withSerial: originalMessage.serial,
+  params: .init(text: "my updated text"),
+  details: .init(description: "Message update by user")
+)
+```
+
+### Kotlin
+
+```
+val originalMessage: Message
+val updatedMessage = room.messages.update(
+  originalMessage.copy(text = "my updated text"),
+  operationDescription = "Message update by user",
+)
+```
+
+### Android
+
+```
+import androidx.compose.material.*
+import androidx.compose.runtime.*
+import com.ably.chat.Message
+import com.ably.chat.Room
+import com.ably.chat.copy
+import com.ably.chat.update
+import kotlinx.coroutines.launch
+
+@Composable
+fun MyComponent(room: Room) {
+  val coroutineScope = rememberCoroutineScope()
+  val originalMessage: Message // assume this is available
+
+  Button(onClick = {
+    coroutineScope.launch {
+      room.messages.update(
+        originalMessage.copy(text = "my updated text"),
+        operationDescription = "Message update by user",
+      )
+    }
+  }) {
+    Text("Update Message")
+  }
+}
+```
+</Code>
+
+### Filter for updates 
+
+<If lang="javascript,swift,kotlin,android">
+Use the <If lang="javascript">[`messages.subscribe()`](https://ably.com/docs/chat/api/javascript/messages.md#subscribe)</If><If lang="swift">[`messages.subscribe()`](https://sdk.ably.com/builds/ably/ably-chat-swift/main/AblyChat/documentation/ablychat/messages/subscribe%28%29-8jolq)</If><If lang="kotlin,android">[`messages.subscribe()`](https://sdk.ably.com/builds/ably/ably-chat-kotlin/main/dokka/chat/com.ably.chat/-messages/subscribe.html)</If> method to receive messages in a room. To filter for updated messages, provide a listener that checks the <If lang="javascript,kotlin,android">`type`</If><If lang="swift">`action`</If> property of the message event:
+</If>
+
+<If lang="react">
+Use the [`useMessages`](https://sdk.ably.com/builds/ably/ably-chat-js/main/typedoc/functions/chat-react.useMessages.html) hook to subscribe to messages in a room. To filter for updated messages, provide a listener that checks the `type` property of the message event:
+</If>
+
+<Code>
+
+#### Javascript
+
+```
+import { ChatMessageEventType } from '@ably/chat';
+const {unsubscribe} = room.messages.subscribe((event) => {
+  switch (event.type) {
+    case ChatMessageEventType.Created:
+      console.log('Received message: ', event.message);
+      break;
+    case ChatMessageEventType.Updated:
+      const existing = myMessageList.find(msg => msg.serial === event.message.serial);
+      if (existing && event.message.version.serial <= existing.version.serial) {
+        // We've already received a more recent update, so this one can be discarded.
+        return;
+      }
+
+      console.log('Message updated: ', event.message);
+      break;
+    default:
+      break;
+  }
+});
+```
+
+#### React
+
+```
+import { ChatMessageEventType } from '@ably/chat';
+import { useMessages } from '@ably/chat/react';
+
+const MyComponent = () => {
+  useMessages({
+    listener: (event) => {
+      switch (event.type) {
+        case ChatMessageEventType.Created:
+          console.log('Received message: ', event.message);
+          break;
+        case ChatMessageEventType.Updated:
+          const existing = myMessageList.find(msg => msg.serial === event.message.serial);
+          if (existing && event.message.version.serial <= existing.version.serial) {
+            // We've already received a more recent update, so this one can be discarded.
+            return;
+          }
+
+          console.log('Message updated: ', event.message);
+          break;
+        default:
+          break;
+      }
+    },
+  });
+
+  return <div>...</div>;
+};
+```
+
+#### Swift
+
+```
+let messagesList: [Message]
+let messagesSubscription = try await room.messages.subscribe()
+for await message in messagesSubscription {
+  switch message.action {
+      case .messageCreate:
+        messagesList.append(message)
+      case .messageUpdate:
+        // compare versions to ensure you are only updating with a newer message
+        if let index = messagesList.firstIndex(where: { $0.serial == message.serial && message.version > $0.version }) {
+            messagesList[index] = message
+        }
+      default:
+        break
+  }
+}
+```
+
+#### Kotlin
+
+```
+val myMessageList: List<Messages>
+val messagesSubscription = room.messages.subscribe { event ->
+  when (event.type) {
+    ChatMessageEventType.Created -> println("Received message: ${event.message}")
+    ChatMessageEventType.Updated -> myMessageList.find {
+      event.message.serial == it.serial && event.message.version.serial > it.version.serial
+    }?.let { println("Message updated: ${event.message}") }
+    else -> {}
+  }
+}
+```
+
+#### Android
+
+```
+import androidx.compose.runtime.*
+import com.ably.chat.ChatMessageEventType
+import com.ably.chat.Message
+import com.ably.chat.Room
+import com.ably.chat.asFlow
+
+@Composable
+fun MyComponent(room: Room) {
+  var myMessageList by remember { mutableStateOf<List<Message>>(emptyList()) }
+
+  LaunchedEffect(room) {
+    room.messages.asFlow().collect { event ->
+      when (event.type) {
+        ChatMessageEventType.Created -> {
+          myMessageList = myMessageList + event.message
+        }
+        ChatMessageEventType.Updated -> {
+          myMessageList = myMessageList.map { message ->
+            if (message.serial == event.message.serial &&
+                event.message.version.serial > message.version.serial) {
+              event.message
+            } else {
+              message
+            }
+          }
+        }
+        else -> {}
+      }
+    }
+  }
+}
+```
+</Code>
+
+See [below](#global-ordering) for more information on how to deterministically apply ordering to update events in your application.
+
+### Message update structure 
+
+The following is the structure of an updated message:
+
+<Code>
+
+#### Json
+
+```
+{
+  "serial": "01726232498871-001@abcdefghij:001",
+  "clientId": "basketLover014",
+  "text": "What a shot! Edit: I meant to say 'What a dunk!'",
+  "headers": {},
+  "metadata": {},
+  "timestamp": new Date("2024-06-12T11:37:59.988Z"),
+  "action": "message.update",
+  "version": {
+    "serial": "01826232498871-001@abcdefghij:001",
+    "timestamp": new Date("2024-11-21T15:49:25.425Z"),
+    "clientId": "basketLover014",
+    "description": "Message updated by client",
+    "metadata": {}
+  }
+}
+```
+</Code>
+
+The updated message response is identical to the structure of a message, with the following differences:
+
+| Property | Description | Type |
+| -------- | ----------- | ---- |
+| `action` | Set to `message.update`. | `String` |
+| `version` | Contains additional fields compared to `message.create` action: | `Object` |
+| `version.serial` | Set to the serial of the update action. | `String` |
+| `version.timestamp` | Set to the time the message was updated. | `Date` |
+| `version.clientId` | The client identifier of the user who performed the update. | `String` or `undefined` |
+| `version.description` | Optional description provided in the update request. | `String` or `undefined` |
+| `version.metadata` | Optional metadata provided in the update request. | `Object` or `undefined` |
+
+## Delete a message 
+
+<If lang="javascript,swift,kotlin,android">
+Use the <If lang="javascript">[`messages.delete()`](https://ably.com/docs/chat/api/javascript/messages.md#delete)</If><If lang="swift">[`messages.delete()`](https://sdk.ably.com/builds/ably/ably-chat-swift/main/AblyChat/documentation/ablychat/messages/delete%28withserial:details:%29)</If><If lang="kotlin,android">[`messages.delete()`](https://sdk.ably.com/builds/ably/ably-chat-kotlin/main/dokka/chat/com.ably.chat/-messages/delete.html)</If> method to delete a message in a chat room. All users that are [subscribed](#subscribe) to messages on that room will receive the deletion:
+</If>
+
+<If lang="react">
+Use the [`deleteMessage()`](https://sdk.ably.com/builds/ably/ably-chat-js/main/typedoc/interfaces/chat-react.UseMessagesResponse.html#deletemessage) method available from the response of the `useMessages` hook to delete a message from the room:
+</If>
+
+<Code>
+
+### Javascript
+
+```
+import { Message } from '@ably/chat';
+const messageToDelete: Message
+await room.messages.delete(messageToDelete.serial, { description: 'Message deleted by user' });
+```
+
+### React
+
+```
+import { Message } from '@ably/chat';
+import { useMessages } from '@ably/chat/react';
+
+const MyComponent = () => {
+  const { deleteMessage } = useMessages();
+  const [message, setMessage] = useState<Message>();
+
+  const handleMessageDelete = (msg: Message) => {
+    deleteMessage(msg.serial, { description: 'Message deleted by user' })
+    .then((deletedMessage: Message) => {
+      console.log('Message deleted:', deletedMessage);
+    })
+    .catch((error) => {
+      console.error('Error deleting message: ', error);
+    });
+  };
+
+  return (
+    <div>
+      <button onClick={() => handleMessageDelete(message)}>Delete Message</button>
+    </div>
+  );
+};
+```
+
+### Swift
+
+```
+let messageToDelete: Message
+let deletedMessage = try await room.messages.delete(
+  withSerial: messageToDelete.serial,
+  details: .init(description: "Message deleted by user")
+)
+```
+
+### Kotlin
+
+```
+val messageToDelete: Message
+val deletedMessage = room.messages.delete(
+  messageToDelete,
+  operationDescription = "Message deleted by user",
+)
+```
+
+### Android
+
+```
+import androidx.compose.material.*
+import androidx.compose.runtime.*
+import com.ably.chat.Message
+import com.ably.chat.Room
+import com.ably.chat.delete
+import kotlinx.coroutines.launch
+
+@Composable
+fun MyComponent(room: Room) {
+  val coroutineScope = rememberCoroutineScope()
+  val messageToDelete: Message // assume this is available
+
+  Button(onClick = {
+    coroutineScope.launch {
+      room.messages.delete(
+        messageToDelete,
+        operationDescription = "Message deleted by user",
+      )
+    }
+  }) {
+    Text("Delete Message")
+  }
+}
+```
+</Code>
+
+### Filter for deletes 
+
+<If lang="javascript,swift,kotlin,android">
+Use the <If lang="javascript">[`messages.subscribe()`](https://ably.com/docs/chat/api/javascript/messages.md#subscribe)</If><If lang="swift">[`messages.subscribe()`](https://sdk.ably.com/builds/ably/ably-chat-swift/main/AblyChat/documentation/ablychat/messages/subscribe%28%29-8jolq)</If><If lang="kotlin,android">[`messages.subscribe()`](https://sdk.ably.com/builds/ably/ably-chat-kotlin/main/dokka/chat/com.ably.chat/-messages/subscribe.html)</If> method to receive messages in a room. To filter for deleted messages, provide a listener that checks the <If lang="javascript,kotlin,android">`type`</If><If lang="swift">`action`</If> property of the message event:
+</If>
+
+<If lang="react">
+Use the [`useMessages`](https://sdk.ably.com/builds/ably/ably-chat-js/main/typedoc/functions/chat-react.useMessages.html) hook to subscribe to messages in a room. To filter for deleted messages, provide a listener that checks the `type` property of the message event:
+</If>
+
+<Code>
+
+#### Javascript
+
+```
+import { ChatMessageEventType } from '@ably/chat';
+const {unsubscribe} = room.messages.subscribe((event) => {
+  switch (event.type) {
+    case ChatMessageEventType.Created:
+      console.log('Received message: ', event.message);
+      break;
+    case ChatMessageEventType.Deleted:
+      const existing = myMessageList.find(msg => msg.serial === event.message.serial);
+      if (existing && event.message.version.serial <= existing.version.serial) {
+        // We've already received a more recent update, so this one can be discarded.
+        return;
+      }
+
+      console.log('Message deleted: ', event.message);
+      break;
+    default:
+      break;
+  }
+});
+```
+
+#### React
+
+```
+import { ChatMessageEventType } from '@ably/chat';
+import { useMessages } from '@ably/chat/react';
+
+const MyComponent = () => {
+  useMessages({
+    listener: (event) => {
+      switch (event.type) {
+        case ChatMessageEventType.Created:
+          console.log('Received message: ', event.message);
+          break;
+        case ChatMessageEventType.Deleted:
+          const existing = myMessageList.find(msg => msg.serial === event.message.serial);
+          if (existing && event.message.version.serial <= existing.version.serial) {
+            // We've already received a more recent update, so this one can be discarded.
+            return;
+          }
+
+          console.log('Message deleted: ', event.message);
+          break;
+        default:
+          break;
+      }
+    },
+  });
+
+  return <div>...</div>;
+};
+```
+
+#### Swift
+
+```
+let messagesList: [Message]
+let messagesSubscription = try await room.messages.subscribe()
+for await message in messagesSubscription {
+  switch message.action {
+      case .messageCreate:
+        messagesList.append(message)
+      case .messageDelete:
+        // version check ensures the message you are deleting is older
+        if let index = messagesList.firstIndex(where: {  $0.serial == message.serial && message.version > $0.version }) {
+           messagesList.remove(at: index)
+        }
+      default:
+        break
+  }
+}
+```
+
+#### Kotlin
+
+```
+val myMessageList: List<Messages>
+val messagesSubscription = room.messages.subscribe { event ->
+  when (event.type) {
+    ChatMessageEventType.Created -> println("Received message: ${event.message}")
+    ChatMessageEventType.Deleted -> myMessageList.find {
+      event.message.serial == it.serial && event.message.version.serial > it.version.serial
+    }?.let { println("Message deleted: ${event.message}") }
+    else -> {}
+  }
+}
+```
+
+#### Android
+
+```
+import androidx.compose.runtime.*
+import com.ably.chat.ChatMessageEventType
+import com.ably.chat.Message
+import com.ably.chat.Room
+import com.ably.chat.asFlow
+
+@Composable
+fun MyComponent(room: Room) {
+  var myMessageList by remember { mutableStateOf<List<Message>>(emptyList()) }
+
+  LaunchedEffect(room) {
+    room.messages.asFlow().collect { event ->
+      when (event.type) {
+        ChatMessageEventType.Created -> {
+          myMessageList = myMessageList + event.message
+        }
+        ChatMessageEventType.Deleted -> {
+          myMessageList = myMessageList.filterNot { message ->
+            message.serial == event.message.serial &&
+            event.message.version.serial > message.version.serial
+          }
+        }
+        else -> {}
+      }
+    }
+  }
+}
+```
+</Code>
+
+See [below](#global-ordering) for more information on how to deterministically apply ordering to delete events in your application.
+
+### Message deletion structure 
+
+The following is the structure of a deleted message:
+
+<Code>
+
+#### Json
+
+```
+{
+  "serial": "01726232498871-001@abcdefghij:001",
+  "clientId": "basketLover014",
+  "text": "",
+  "headers": {},
+  "metadata": {},
+  "timestamp": new Date("2024-06-12T11:37:59.988Z"),
+  "action": "message.delete",
+  "version": {
+    "serial": "01826232498871-001@abcdefghij:001",
+    "timestamp": new Date("2024-11-21T15:49:25.425Z"),
+    "clientId": "basketLover014",
+    "description": "Message deleted by client",
+    "metadata": {}
+  }
+}
+```
+</Code>
+
+The deleted message response is identical to the structure of a message, with the following differences:
+
+| Property | Description | Type |
+| -------- | ----------- | ---- |
+| `action` | Set to `message.delete`. | `String` |
+| `version` | Contains additional fields compared to `message.create` action: | `Object` |
+| `version.serial` | Set to the serial of the deletion action. | `String` |
+| `version.timestamp` | Set to the time the message was deleted. | `Date` |
+| `version.clientId` | The client identifier of the user who performed the deletion. | `String` or `undefined` |
+| `version.description` | Optional description provided in the delete request. | `String` or `undefined` |
+| `version.metadata` | Optional metadata provided in the delete request. | `Object` or `undefined` |
+| `text` | Set to the empty string. | `String` |
+| `metadata` | Set to the empty object. | `Object` |
+| `headers` | Set to the empty object. | `Object` |
+
+## Ordering chat message events 
+
+Chat messages and update events are delivered in realtime to clients connected to a particular region in the order in which that region receives them. The order in which a given region receives these events may be different from the "global" order of events, i.e. the true time-based order in which events happened.
+
+Chat messages are uniquely identified by their `serial` and may have multiple `versions` as a result of edit and delete operations. Both `serial` and `version.serial` are lexicographically sortable strings. This means they can be used to enforce a deterministic global ordering based on string comparison.
+
+<Aside data-type="usp">
+Guaranteed message order.
+
+Ably guarantees messages arrive to all subscribers in a [consistent order](https://ably.com/docs/platform/architecture/message-ordering.md), within each site. Unique serials are associated to all messages so that a consistent global order can be enforced.
+</Aside>
+
+### Ordering new messages 
+
+If the `serial` of one message occurs before another when lexicographically sorted, the first message is considered to have occurred before the other. If the `serial` values are identical, the messages are the same message.
+
+<Code>
+
+#### Javascript
+
+```
+import { Message } from '@ably/chat';
+const messageA: Message
+const messageB: Message
+
+if (messageA.serial < messageB.serial) {
+  console.log('messageA occurred before messageB');
+} else if (messageA.serial > messageB.serial) {
+  console.log('messageA occurred after messageB');
+} else {
+  console.log('messageA and messageB are concurrent (the same message)');
+}
+```
+</Code>
+
+### Ordering updates and deletes 
+
+Applying an action to a message produces a new version, which is uniquely identified by the `version.serial` property. When two message instances share the same `serial` they represent the same chat message, but they can represent different versions. Lexicographically sorting the two message instances by the `version.serial` property gives the global order of the message versions: the message instance with a greater `version.serial` is newer, the message instance with a lower `version.serial` is older, and if their `version.serial` is equal then they are the same version.
+
+Update and Delete events provide the message payload without message reactions. To correctly use message reactions, always use the [`with()`](https://ably.com/docs/chat/api/javascript/message.md#with) method to apply the event to the message instance.
+
+## Keep messages updated using with() 
+
+The [`Message`](https://ably.com/docs/chat/api/javascript/message.md) object has a method [`with`](https://ably.com/docs/chat/api/javascript/message.md#with) that takes a `MessageEvent`, automatically compares version serials, and returns the newest `Message` instance. For updates and deletes, if `message.with(event)` is called with an `event` that has an older `version.serial` than the `message`, then the `message` is returned unchanged. If it is called with a newer event (greater `version.serial`), then the message from the event is returned. For message reaction events, the reactions will be correctly applied to the returned message.
+
+`Message.with()` also ensures that reactions from existing messages are copied over to the new message instance in the case of UPDATEs or DELETEs.
+
+Example usage to keep a list of messages updated:
+
+<Code>
+
+### Javascript
+
+```
+import { ChatMessageEventType, Message } from '@ably/chat';
+let myMessageList: Message[];
+
+// For messages (create, update, delete)
+room.messages.subscribe((event) => {
+  switch (event.type) {
+    case ChatMessageEventType.Created:
+      myMessageList.push(event.message);
+      break;
+    case ChatMessageEventType.Updated:
+    case ChatMessageEventType.Deleted:
+      const idx = myMessageList.findIndex((msg) => msg.serial === event.message.serial);
+      if (idx !== -1) {
+        myMessageList[idx] = myMessageList[idx].with(event);
+      }
+      break;
+    default:
+      break;
+  }
+});
+
+// And for message reactions
+room.messages.reactions.subscribe((event) => {
+  const idx = myMessageList.findIndex((msg) => msg.serial === event.messageSerial);
+  if (idx !== -1) {
+    myMessageList[idx] = myMessageList[idx].with(event);
+  }
+});
+```
+
+### React
+
+```
+import { ChatMessageEventType, Message } from '@ably/chat';
+import { useMessages } from '@ably/chat/react';
+
+const MyComponent = () => {
+  // we use {list: []} to avoid copying the full array with every change
+  // but still take advantage of React's state change detection
+  const [ messages, setMessages ] = useState<{list: Message[]}>({list: []});
+  useMessages({
+    listener: (event) => {
+      switch (event.type) {
+        case ChatMessageEventType.Created:
+          setMessages((prev) => {
+            // append new message
+            prev.list.push(event.message);
+            // update reference without copying whole array
+            return { list: prev.list };
+          });
+          break;
+        case ChatMessageEventType.Updated:
+        case ChatMessageEventType.Deleted:
+          setMyMessageList((prev) => {
+            // find existing message to apply update or delete to
+            const existing = prev.list.findIndex((msg) => msg.serial === event.message.serial);
+            if (existing === -1) {
+              return prev; // no change if not found
+            }
+            const newMsg = existing.with(event);
+            if (newMsg === existing) {
+              // with() returns the same object if the event is older,
+              // so in this case no change is needed
+              return prev;
+            }
+            // set new message and update reference without copying whole array
+            prev.list[existing] = newMsg;
+            return { list: prev.list };
+          });
+          break;
+      }
+    },
+  });
+
+  return <div>...</div>;
+};
+```
+</Code>
+
+## Related Topics
+
+- [Message history](https://ably.com/docs/chat/rooms/history.md): Retrieve previously sent messages from history.
+- [Presence](https://ably.com/docs/chat/rooms/presence.md): Use presence to see which users are online and their user status.
+- [Occupancy](https://ably.com/docs/chat/rooms/occupancy.md): Use occupancy to see how many users are in a room.
+- [Message reactions](https://ably.com/docs/chat/rooms/message-reactions.md): React to chat messages
+- [Typing indicators](https://ably.com/docs/chat/rooms/typing.md): Display typing indicators in a room so that users can see when someone else is writing a message.
+- [Room reactions](https://ably.com/docs/chat/rooms/reactions.md): Enable users to send reactions at the room level, based on what is happening in your application, such as a goal being scored in your livestream.
+- [Share media](https://ably.com/docs/chat/rooms/media.md): Share media such as images, videos, or files in a chat room.
+- [Message replies](https://ably.com/docs/chat/rooms/replies.md): Add reply functionality to messages in a chat room.
+
+## Documentation Index
+
+To discover additional Ably documentation:
+
+1. Fetch [llms.txt](https://ably.com/llms.txt) for the canonical list of available pages.
+2. Identify relevant URLs from that index.
+3. Fetch target pages as needed.
+
+Avoid using assumed or outdated documentation paths.

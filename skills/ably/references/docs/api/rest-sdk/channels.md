@@ -1,0 +1,1441 @@
+# Channels
+
+## Channels 
+
+The `Channels` object, accessed from the [rest library client constructor](https://ably.com/docs/api/rest-sdk.md#channels), is used to create and destroy `Channel` objects. It exposes the following public methods:
+
+### Channels Methods 
+
+#### <If lang="javascript,nodejs,php,python,ruby,java,swift,objc,go,flutter">get</If><If lang="csharp">Get</If>
+
+<If lang="javascript,nodejs,php,python,ruby,java,go,flutter">
+
+`Channel get(String channelName, ChannelOptions channelOptions)`
+
+</If>
+
+<If lang="csharp">
+
+`Channel Get(String channelName, ChannelOptions channelOptions)`
+
+</If>
+
+<If lang="objc,swift">
+
+`ARTRealtimeChannel get(String channelName, ARTChannelOptions channelOptions)`
+
+</If>
+
+Creates a new [Channel](#properties) object if none for the channel exists, or returns the existing channel object.
+
+#### <If lang="javascript,nodejs,php,python,ruby,java,swift,objc,go,flutter">release</If><If lang="csharp">Release</If>
+
+<If lang="javascript,nodejs,php,python,ruby">
+
+`release(String channelName)`
+
+</If>
+
+<If lang="java,objc,swift,flutter">
+
+`void release(String channelName)`
+
+</If>
+
+<If lang="csharp">
+
+`bool Release(string channelName)`
+
+</If>
+
+Releases all SDK-held references to a [Channel](#properties) object, enabling it to be garbage collected. It can be useful for applications that work with a continually changing set of channels on a single client and need to avoid unbounded memory growth; if this does not describe your application, don't call it.
+
+<Aside data-type='important'>
+This method has no guardrails: using a channel reference after `release` has been called is undefined behaviour.
+</Aside>
+
+This method only affects the local client-side representation of the channel. The channel itself on the Ably platform is not deleted or changed, and other client instances (in the same or different processes) are unaffected.
+
+After release, calling `channels.get(channelName)` returns a fresh channel object.
+
+## Channel 
+
+The Channel object, created via the [Channels](#channels-object) object, is used to interact with a specific channel.
+
+### <If lang="javascript,nodejs,flutter">Channel Properties</If><If lang="python">Channel Attributes</If><If lang="php">Ably\Channel Properties</If><If lang="objc,swift">ARTRestChannel Properties</If><If lang="ruby">Ably::Rest::Channel Attributes</If><If lang="java">io.ably.lib.rest.Channel Members</If><If lang="csharp">IO.Ably.Rest.RestChannel Members</If><If lang="go">Channel Methods</If>
+
+The `Channel` object exposes the following public <If lang="javascript,nodejs,php,csharp,swift,objc,go,flutter">properties</If><If lang="ruby,python">attributes</If><If lang="java">members</If>:
+
+#### <If lang="javascript,nodejs,php,python,ruby,java,swift,objc,flutter">name</If><If lang="csharp,go">Name</If>
+
+The name `String` unique to this channel.
+
+#### <If lang="javascript,nodejs,php,python,ruby,java,swift,objc,flutter">presence</If><If lang="csharp,go">Presence</If>
+
+Provides access to the [REST Presence](https://ably.com/docs/presence-occupancy/presence.md) object for this channel which can be used to get members present on the channel, or retrieve presence event history.
+
+#### push
+
+Provides access to the [PushChannel](https://ably.com/docs/api/realtime-sdk/push.md#push-channel) object for this channel which can be used to access members present on the channel, or participate in presence.
+
+<If lang="javascript,nodejs">
+#### object 
+
+Provides access to the [RestObject](https://ably.com/docs/liveobjects/rest-sdk-usage.md) for this channel which can be used to read and modify LiveObjects on a channel using the REST SDK.
+</If>
+
+### Channel Methods
+
+#### <If lang="javascript,nodejs,php,python,ruby,java,swift,objc,go,flutter">publish</If><If lang="csharp,go">Publish</If>
+
+There are two overloaded versions of this method:
+
+<If lang="javascript,nodejs">
+
+`publish(String name, Object data, PublishOptions options?) Promise<Void>`
+
+</If>
+
+<If lang="ruby,php">
+
+`publish(String name, Object data)`
+
+</If>
+
+<If lang="python">
+
+`publish(name=Unicode, data=Object)`
+
+</If>
+
+<If lang="java">
+
+`void publish(String name, Object data)`
+
+</If>
+
+<If lang="csharp">
+
+`Task PublishAsync(string name, object data, string clientId = null)`
+
+</If>
+
+<If lang="objc,swift">
+
+`publish(name: String?, data: AnyObject?, callback: ((ARTErrorInfo?) -> Void)?)`
+
+</If>
+
+<If lang="go">
+
+`(c *RestChannel) Publish(name string, data interface{}) (error ErrorInfo)`
+
+</If>
+
+<If lang="flutter">
+
+`Future<void> publish({String name, Object data})`
+
+</If>
+
+Publish a single message on this channel based on a given event name and payload. <If lang="objc,swift">A callback may optionally be passed in to this call to be notified of success or failure of the operation.</If><If lang="java">A listener may optionally be passed in to this call to be notified of success or failure of the operation.</If><If lang="ruby">A callback may optionally be passed in to this call to be notified of success of the operation.</If>
+
+It is also possible to publish a message to multiple channels at once using our [batch publish feature](https://ably.com/docs/messages/batch.md#batch-publish).
+
+<If lang="javascript,nodejs">
+
+`publish(Message message, PublishOptions options?): Promise<void>`
+
+Publish a single message on this channel.
+
+</If>
+
+<If lang="javascript,nodejs">
+
+`publish(Message[] messages, PublishOptions options?): Promise<Void>`
+
+</If>
+
+<If lang="ruby,php">
+
+`publish(Message[] messages)`
+
+</If>
+
+<If lang="python">
+
+`publish(messages=List<Message>)`
+
+</If>
+
+<If lang="java">
+
+`void publish(Message[] messages)`
+
+</If>
+
+<If lang="csharp">
+
+`Task PublishAsync(IEnumerable<Message> messages)`
+
+</If>
+
+<If lang="objc,swift">
+
+`publish(messages: [ARTMessage], callback: ((ARTErrorInfo?) -> Void)?)`
+
+</If>
+
+<If lang="go">
+
+`(c *RestChannel) PublishAll(messages []*proto.Message) (error ErrorInfo)`
+
+</If>
+
+<If lang="flutter">
+
+`Future<void> publish({List<Message> messages})`
+
+</If>
+
+Publish several messages on this channel. <If lang="objc,swift">A callback may optionally be passed in to this call to be notified of success or failure of the operation.</If><If lang="java">A listener may optionally be passed in to this call to be notified of success or failure of the operation.</If><If lang="ruby">A callback may optionally be passed in to this call to be notified of success of the operation.</If>
+
+The entire `messages` array is published atomically. This means that:
+
+* Either they will all be successfully published or none of them will
+* The [max message size](https://ably.com/docs/platform/pricing/limits.md#message) limit applies to the total size of all messages in the array
+* The publish will only count as a single message for the purpose of [per-channel rate limit](https://ably.com/docs/platform/pricing/limits.md#message)
+* If you are using client-specified message IDs for publish idempotency, [they must conform to certain restrictions](https://faqs.ably.com/client-specified-message-id-restrictions-for-multiple-messages-published-atomically)
+
+#### Parameters
+
+<If lang="javascript,nodejs">
+
+| Parameter | Description | Type |
+|-----------|-------------|------|
+| data | Data payload for the message. The supported payload types are Strings, objects or arrays capable of JSON representation, buffers containing arbitrary binary data, and null. (Note that if sending a binary, that binary should be the entire payload; an object with a binary field within it may not be correctly encoded) | `Object` |
+| messages | An array of message objects to publish | [`Message []`](#message) |
+| options | Optional parameters to provide to the publish operation | [`PublishOptions`](#publish-options) |
+
+</If>
+
+<If lang="csharp,python">
+
+| Parameter | Description | Type |
+|-----------|-------------|------|
+| name | Event name for the published message | <If lang="csharp">`String`</If><If lang="python">`Unicode` for Python 2, `String` for Python 3</If> |
+| data | Data payload for the message. The supported payload types are <If lang="csharp">strings, plain .NET objects, binary data as byte arrays, and null</If><If lang="python">unicode Strings, Dict, or List objects that can be serialized to JSON using `json.dumps`, binary data as `bytearray` (in Python 3, `bytes` also works), and None</If> | `Object` |
+| messages | An array of message objects to publish | [`Message []`](#message) |
+
+</If>
+
+<If lang="go">
+
+| Parameter | Description | Type |
+|-----------|-------------|------|
+| data | Data payload for the message. The supported payload types are strings, objects that can be serialized to JSON, binary data as byte arrays, and nil | `interface` |
+| messages | An array of message objects to publish | [`Message []`](#message) |
+
+</If>
+
+<If lang="ruby">
+
+| Parameter | Description | Type |
+|-----------|-------------|------|
+| data | Data payload for the message. The supported payload types are Strings, Hash or Array objects that can be serialized to JSON using `to_json`, binary data as `ASCII-8BIT` byte arrays, and null. (Note that if sending a byte array, it should be the entire payload; a hash or array with a bytearray field within it may not be correctly encoded) | `Object` |
+| messages | An array of message objects to publish | [`Message []`](#message) |
+
+</If>
+
+<If lang="php">
+
+| Parameter | Description | Type |
+|-----------|-------------|------|
+| data | Data payload for the message. The supported payload types are Strings, Associative Array or Array objects that can be serialized to JSON, binary data as byte arrays, and null | `Object` |
+| messages | An array of message objects to publish | [`Message []`](#message) |
+
+</If>
+
+<If lang="java">
+
+| Parameter | Description | Type |
+|-----------|-------------|------|
+| data | Data payload for the message. The supported payload types are Strings, JsonObject, binary data as byte arrays, and null | `Object` |
+| messages | An array of message objects to publish | [`Message []`](#message) |
+
+</If>
+
+<If lang="flutter">
+
+| Parameter | Description | Type |
+|-----------|-------------|------|
+| name | Event name for the published message | `String` |
+| data | Data payload for the message. The supported payload types are String, Map, List, and null | `Object` |
+| message | Payload for the message as a [`Message`](#message) object | [`Message`](#message) |
+| messages | An array of message objects to publish | [`Message []`](#message) |
+
+</If>
+
+<If lang="swift,objc">
+
+| Parameter | Description | Type |
+|-----------|-------------|------|
+| data | Data payload for the message. The supported payload types are <If lang="objc">`NS`</If>`String`, <If lang="objc">`NS`</If>`Dictionary` or <If lang="objc">`NS`</If>`Array` objects that can be serialized to JSON, binary data as `NSData`, and `nil` | `Object` |
+| messages | An array of message objects to publish | [`Message []`](#message) |
+| callback | Called upon publishing the message, or with an error | |
+
+</If>
+
+<If lang="javascript,nodejs">
+
+#### Returns
+
+Returns a promise. On success, the promise resolves. On failure, the promise is rejected with an [`ErrorInfo`](#error-info) object that details the reason why it was rejected.
+
+</If>
+
+<If lang="swift,objc">
+
+#### Callback result
+
+On successful publish of the message, `err` is null. On failure to publish the message, `err` contains an [`ErrorInfo`](#error-info) object describing the failure reason.
+
+</If>
+
+<If lang="java,ruby,php">
+
+#### Failure
+
+On failure to publish the message, an [`AblyException`](https://ably.com/docs/api/rest-sdk/types.md#ably-exception) will be raised.
+
+</If>
+
+<If lang="csharp">
+
+#### Returns
+
+The method is asynchronous and returns a Task that can be awaited.
+
+On failure to publish the message, an [`AblyException`](https://ably.com/docs/api/rest-sdk/types.md#ably-exception) will be raised.
+
+</If>
+
+<If lang="go">
+
+#### Returns
+
+The function returns [`ErrorInfo`](#error-info) if an error has occurred, otherwise it returns `nil`.
+
+</If>
+
+<If lang="flutter">
+
+#### Returns
+
+The function throws `ably.AblyException` if an error has occurred.
+
+</If>
+
+<If lang="javascript,nodejs,php,python,ruby,java,swift,objc,flutter">
+
+### history
+
+</If>
+
+<If lang="csharp,go">
+
+### History
+
+</If>
+
+<If lang="javascript,nodejs">
+
+`history(Object params?): Promise<PaginatedResult<Message>>`
+
+</If>
+
+<If lang="ruby">
+
+`PaginatedResult<Message> history(Hash options)`
+
+</If>
+
+<If lang="python">
+
+`PaginatedResult<Message> history(kwargs_options)`
+
+</If>
+
+<If lang="php">
+
+`PaginatedResult<Message> history(Array options)`
+
+</If>
+
+<If lang="java">
+
+`PaginatedResult<Message> history(Param[] options)`
+
+</If>
+
+<If lang="csharp">
+
+`Task<PaginatedResult<Message>> HistoryAsync(PaginatedRequestParams dataQuery)`
+
+</If>
+
+<If lang="objc,swift">
+
+`history(query: ARTRealtimeHistoryQuery?, callback: (ARTPaginatedResult<ARTMessage>?, ARTErrorInfo?) -> Void) throws`
+
+</If>
+
+<If lang="go">
+
+`(c *RestChannel) History(options *PaginateParams) (*PaginatedResult, error)`
+
+</If>
+
+Gets a [paginated](#paginated-result) set of historical messages for this channel. If the [channel is configured to persist messages to disk](https://faqs.ably.com/how-long-are-messages-stored-for), then message history will [typically be available for 24 - 72 hours](https://faqs.ably.com/how-long-are-messages-stored-for). If not, messages are only retained in memory by the Ably service for two minutes.
+
+#### Parameters
+
+<If lang="javascript,nodejs,java,csharp,php,python,ruby,go,flutter">
+
+| Parameter | Description | Type |
+|-----------|-------------|------|
+| <If lang="javascript,nodejs,go,flutter">params</If><If lang="csharp">query</If><If lang="java">[`Param[]`](#param) options</If><If lang="php,python,ruby">params</If> | <If lang="javascript,nodejs,java,csharp,go,flutter">An optional object containing the query parameters</If><If lang="python">Optional keyword arguments containing the query parameters</If><If lang="ruby">An optional set of key value pairs containing the query parameters</If><If lang="php">An optional Associative Array containing the query parameters</If>, as specified in the [message history API documentation](https://ably.com/docs/api/rest-sdk/history.md#channel-history) | Object |
+
+</If>
+
+<If lang="swift,objc">
+
+| Parameter | Description | Type |
+|-----------|-------------|------|
+| query | An optional object containing the query parameters, as specified in the [message history API documentation](https://ably.com/docs/api/rest-sdk/history.md#channel-history) | Object |
+| callback | Called with a [`ARTPaginatedResult`](#paginated-result)\<[`ARTMessage`](#message)> object or an error | Callback |
+
+</If>
+
+<If lang="javascript,nodejs">
+
+#### Returns
+
+Returns a promise. On success, the promise is fulfilled with a [`PaginatedResult`](#paginated-result) object containing an array of messages. On failure, the promise is rejected with an [`ErrorInfo`](#error-info) object that details the reason why it was rejected.
+
+</If>
+
+<If lang="objc,swift">
+
+#### Callback result
+
+On success, `resultPage` contains a [`PaginatedResult`](#paginated-result) encapsulating an array of [`Message`](#message) objects corresponding to the current page of results. [`PaginatedResult`](#paginated-result) supports pagination using [`next()`](#paginated-result) and [`first()`](#paginated-result) methods.
+
+On failure to retrieve message history, `err` contains an [`ErrorInfo`](#error-info) object with the failure reason.
+
+</If>
+
+<If lang="java,ruby,php,python">
+
+#### Returns
+
+On success, the returned [`PaginatedResult`](#paginated-result) encapsulates an array of [`Message`](#message) objects corresponding to the current page of results. [`PaginatedResult`](#paginated-result) supports pagination using [`next`](#paginated-result) and [`first`](#paginated-result) methods.
+
+Failure to retrieve the message history will raise an [`AblyException`](https://ably.com/docs/api/realtime-sdk/types.md#ably-exception)
+
+</If>
+
+<If lang="csharp">
+
+#### Returns
+
+The method is asynchronous and return a Task that has to be awaited to get the result.
+
+On success, the returned [`PaginatedResult`](#paginated-result) encapsulates an array of [`Message`](#message) objects corresponding to the current page of results. [`PaginatedResult`](#paginated-result) supports pagination using [`NextAsync`](#paginated-result) and [`FirstAsync`](#paginated-result) methods.
+
+Failure to retrieve the message history will raise an [`AblyException`](https://ably.com/docs/api/realtime-sdk/types.md#ably-exception)
+
+</If>
+
+<If lang="go">
+
+#### Returns
+
+On success, the returned [`PaginatedResult`](#paginated-result) encapsulates an array of [`Message`](#message) objects corresponding to the current page of results. [`PaginatedResult`](#paginated-result) supports pagination using [`next`](#paginated-result) and [`first`](#paginated-result) methods. `error` will be nil.
+
+On failure to retrieve message history, the `error` contains an [`ErrorInfo`](#error-info) object with the failure reason.
+
+</If>
+
+<If lang="javascript,nodejs,java,python,swift">
+
+#### getMessage 
+
+<If lang="javascript,nodejs">
+`getMessage(serialOrMessage: string | Message): Promise<Message>`
+</If>
+
+<If lang="java">
+`Message getMessage(String serial)`
+</If>
+
+<If lang="python">
+`Message get_message(serial_or_message)`
+</If>
+
+<If lang="swift">
+`getMessageWithSerial(_ serial: String, callback: (ARTMessage?, ARTErrorInfo?) -> Void)`
+</If>
+
+Retrieves the latest version of a specific message by its serial identifier. Requires the **history** [capability](https://ably.com/docs/auth/capabilities.md).
+
+See [updating and deleting messages: retrieving the latest version](https://ably.com/docs/messages/updates-deletes.md#get) for more information.
+
+##### Parameters
+
+<If lang="javascript,nodejs">
+| Parameter | Description | Type |
+|-----------|-------------|------|
+| serialOrMessage | Either the serial identifier string of the message to retrieve, or a [`Message`](https://ably.com/docs/api/realtime-sdk/messages.md) object containing a populated `serial` field | `string` or [`Message`](https://ably.com/docs/api/realtime-sdk/messages.md) |
+
+##### Returns
+
+Returns a promise which, upon success, will be fulfilled with a [`Message`](https://ably.com/docs/api/realtime-sdk/messages.md) object representing the latest version of the message. Upon failure, the promise will be rejected with an [`ErrorInfo`](https://ably.com/docs/api/realtime-sdk/types.md#error-info) object which explains the error.
+</If>
+
+<If lang="java">
+| Parameter | Description | Type |
+|-----------|-------------|------|
+| serial | Serial identifier string of the message to retrieve | `String` |
+
+##### Returns
+
+Returns a [`Message`](https://ably.com/docs/api/realtime-sdk/messages.md) object representing the latest version of the message.
+</If>
+
+<If lang="python">
+| Parameter | Description | Type |
+|-----------|-------------|------|
+| serial_or_message | Either the serial identifier string of the message to retrieve, or a `Message` object containing a populated `serial` field | `str` or `Message` |
+
+##### Returns
+
+Returns a [`Message`](https://ably.com/docs/api/realtime-sdk/messages.md) object representing the latest version of the message.
+
+On failure, raises an [`AblyException`](https://ably.com/docs/api/realtime-sdk/types.md#ably-exception).
+</If>
+
+<If lang="swift">
+| Parameter | Description | Type |
+|-----------|-------------|------|
+| serial | A serial identifier string of the message to retrieve | `String` |
+| callback | A success or failure callback function. On success, it receives an [`ARTMessage`](https://ably.com/docs/api/realtime-sdk/messages.md) object representing the latest version of the message | - |
+
+##### Callback result
+
+On success, the callback receives a [`ARTMessage`](https://ably.com/docs/api/realtime-sdk/messages.md) object representing the latest version of the message.
+
+On failure, the callback receives an [`ARTErrorInfo`](https://ably.com/docs/api/realtime-sdk/types.md#error-info) object which explains the error.
+</If>
+
+#### updateMessage 
+
+<If lang="javascript,nodejs">
+`updateMessage(message: Message, operation?: MessageOperation, params?: Record<string, any>): Promise<UpdateDeleteResult>`
+</If>
+
+<If lang="java">
+`UpdateDeleteResult updateMessage(Message message, MessageOperation operation)`
+</If>
+
+<If lang="python">
+`UpdateDeleteResult update_message(message, operation=None, params=dict())`
+</If>
+
+<If lang="swift">
+`update(_ message: ARTMessage, operation: ARTMessageOperation?, params: [String: ARTStringifiable]?, callback: ((ARTUpdateDeleteResult?, ARTErrorInfo?) -> Void)?)`
+</If>
+
+Publishes an update to an existing message with shallow mixin semantics. Non-null `name`, `data`, and `extras` fields in the provided message will replace the corresponding fields in the existing message, while null fields will be left unchanged. Requires the **message-update-own** or **message-update-any** [capability](https://ably.com/docs/auth/capabilities.md).
+
+<If lang="swift">
+Note: Note that this publishes an update, it does not mutate the original message if passed in.
+</If>
+
+See [updating and deleting messages: updates](https://ably.com/docs/messages/updates-deletes.md#update) for more information.
+
+##### Parameters
+
+<If lang="javascript,nodejs,java,python">
+
+| Parameter | Description | Type |
+|-----------|-------------|------|
+| message | A [`Message`](https://ably.com/docs/api/realtime-sdk/messages.md) object containing a populated `serial` field and the fields to update | [`Message`](https://ably.com/docs/api/realtime-sdk/messages.md) |
+| operation | An optional `MessageOperation` object containing metadata about the update operation. Can include `clientId`, `description`, and `metadata` fields | `MessageOperation` (optional) |
+| params | Optional parameters sent as part of the query string | `Record<string, any>` (optional) |
+
+</If>
+
+<If lang="swift">
+
+| Parameter | Description | Type |
+|-----------|-------------|------|
+| message | A [`ARTMessage`](https://ably.com/docs/api/realtime-sdk/messages.md) object containing a populated `serial` field and the fields to update | [`ARTMessage`](https://ably.com/docs/api/realtime-sdk/messages.md) |
+| operation | An optional `ARTMessageOperation` object containing metadata about the update operation. Can include `clientId`, `description`, and `metadata` fields | `ARTMessageOperation` (optional) |
+| params | Optional parameters sent as part of the request. As Ably adds supported parameters, they will be documented on the [docs pages](https://ably.com/docs) | `[String: ARTStringifiable]` (optional) |
+| callback | A success or failure callback function. On success, it receives an `ARTUpdateDeleteResult` object containing the new version of the message | (optional) |
+
+</If>
+
+<If lang="javascript,nodejs">
+##### Returns
+
+Returns a promise which, upon success, will be fulfilled with an [`UpdateDeleteResult`](https://ably.com/docs/api/realtime-sdk/types.md#update-delete-result) object containing the new version of the message. Upon failure, the promise will be rejected with an [`ErrorInfo`](https://ably.com/docs/api/realtime-sdk/types.md#error-info) object which explains the error.
+</If>
+
+<If lang="java, python">
+##### Returns
+
+Returns an [`UpdateDeleteResult`](https://ably.com/docs/api/realtime-sdk/types.md#update-delete-result) object containing the new version of the message.
+</If>
+
+<If lang="swift">
+##### Callback result
+
+On success, the callback receives an [`ARTUpdateDeleteResult`](https://ably.com/docs/api/realtime-sdk/types.md#update-delete-result) object containing the new version of the message.
+
+On failure, the callback receives an [`ARTErrorInfo`](https://ably.com/docs/api/realtime-sdk/types.md#error-info) object which explains the error.
+</If>
+
+#### deleteMessage
+
+<If lang="javascript,nodejs">
+`deleteMessage(message: Message, operation?: MessageOperation, params?: Record<string, any>): Promise<UpdateDeleteResult>`
+</If>
+
+<If lang="java">
+`UpdateDeleteResult deleteMessage(Message message, MessageOperation operation)`
+</If>
+
+<If lang="python">
+`UpdateDeleteResult delete_message(message, operation=None, params=dict())`
+</If>
+
+<If lang="swift">
+`delete(_ message: ARTMessage, operation: ARTMessageOperation?, params: [String: ARTStringifiable]?, callback: ((ARTUpdateDeleteResult?, ARTErrorInfo?) -> Void)?)`
+</If>
+
+Marks a message as deleted by publishing an update with an action of `MESSAGE_DELETE`. This does not remove the message from the server, and the full message history remains accessible. Uses shallow mixin semantics: non-null `name`, `data`, and `extras` fields in the provided message will replace the corresponding fields in the existing message, while null fields will be left unchanged. Requires the **message-delete-own** or **message-delete-any** [capability](https://ably.com/docs/auth/capabilities.md).
+
+See [updating and deleting messages: deletes](https://ably.com/docs/messages/updates-deletes.md#delete) for more information.
+
+##### Parameters
+
+<If lang="javascript,nodejs,java,python">
+
+| Parameter | Description | Type |
+|-----------|-------------|------|
+| message | A [`Message`](https://ably.com/docs/api/realtime-sdk/messages.md) object containing a populated `serial` field | [`Message`](https://ably.com/docs/api/realtime-sdk/messages.md) |
+| operation | An optional `MessageOperation` object containing metadata about the delete operation. Can include `clientId`, `description`, and `metadata` fields | `MessageOperation` (optional) |
+| params | Optional parameters sent as part of the query string | `Record<string, any>` (optional) |
+
+</If>
+
+<If lang="swift">
+
+| Parameter | Description | Type |
+|-----------|-------------|------|
+| message | A [`ARTMessage`](https://ably.com/docs/api/realtime-sdk/messages.md) object containing a populated `serial` field | [`ARTMessage`](https://ably.com/docs/api/realtime-sdk/messages.md) |
+| operation | An optional `ARTMessageOperation` object containing metadata about the delete operation. Can include `clientId`, `description`, and `metadata` fields | `ARTMessageOperation` (optional) |
+| params | Optional parameters sent as part of the request. As Ably adds supported parameters, they will be documented on the [docs pages](https://ably.com/docs) | `[String: ARTStringifiable]` (optional) |
+| callback | A success or failure callback function. On success, it receives an `ARTUpdateDeleteResult` object containing the new version of the message | (optional) |
+
+</If>
+
+<If lang="javascript,nodejs">
+##### Returns
+
+Returns a promise which, upon success, will be fulfilled with an [`UpdateDeleteResult`](https://ably.com/docs/api/realtime-sdk/types.md#update-delete-result) object containing the new version of the message. Upon failure, the promise will be rejected with an [`ErrorInfo`](https://ably.com/docs/api/realtime-sdk/types.md#error-info) object which explains the error.
+</If>
+
+<If lang="java,python">
+##### Returns
+
+Returns an [`UpdateDeleteResult`](https://ably.com/docs/api/realtime-sdk/types.md#update-delete-result) object containing the new version of the message.
+</If>
+
+<If lang="swift">
+##### Callback result
+
+On success, the callback receives an [`ARTUpdateDeleteResult`](https://ably.com/docs/api/realtime-sdk/types.md#update-delete-result) object containing the new version of the message.
+
+On failure, the callback receives an [`ARTErrorInfo`](https://ably.com/docs/api/realtime-sdk/types.md#error-info) object which explains the error.
+</If>
+
+#### appendMessage
+
+<If lang="javascript,nodejs">
+`appendMessage(message: Message, operation?: MessageOperation, params?: Record<string, any>): Promise<UpdateDeleteResult>`
+</If>
+
+<If lang="java">
+`UpdateDeleteResult appendMessage(Message message, MessageOperation operation)`
+</If>
+
+<If lang="python">
+`UpdateDeleteResult append_message(message, operation=None, params=dict())`
+</If>
+
+<If lang="swift">
+`append(_ message: ARTMessage, operation: ARTMessageOperation?, params: [String: ARTStringifiable]?, callback: ((ARTUpdateDeleteResult?, ARTErrorInfo?) -> Void)?)`
+</If>
+
+Appends data to an existing message. The supplied `data` field is appended to the previous message's data, while all other fields (`name`, `extras`) replace the previous values if provided. Requires the **message-update-own** or **message-update-any** [capability](https://ably.com/docs/auth/capabilities.md).
+
+For publishing a high rate of appends, you typically want to use a realtime client, not a REST client, in order to have message order preservation. See [append ordering](https://ably.com/docs/messages/updates-deletes.md#append-ordering).
+
+See [updating and deleting messages: appends](https://ably.com/docs/messages/updates-deletes.md#append) for more information.
+
+##### Parameters
+
+<If lang="javascript,nodejs,java,python">
+
+| Parameter | Description | Type |
+|-----------|-------------|------|
+| message | A [`Message`](https://ably.com/docs/api/realtime-sdk/messages.md) object containing a populated `serial` field and the data to append | [`Message`](https://ably.com/docs/api/realtime-sdk/messages.md) |
+| operation | An optional `MessageOperation` object containing metadata about the append operation. Can include `clientId`, `description`, and `metadata` fields | `MessageOperation` (optional) |
+| params | Optional parameters sent as part of the query string | `Record<string, any>` (optional) |
+
+</If>
+
+<If lang="swift">
+
+| Parameter | Description | Type |
+|-----------|-------------|------|
+| message | A [`ARTMessage`](https://ably.com/docs/api/realtime-sdk/messages.md) object containing a populated `serial` field and the data to append | [`ARTMessage`](https://ably.com/docs/api/realtime-sdk/messages.md) |
+| operation | An optional `ARTMessageOperation` object containing metadata about the append operation. Can include `clientId`, `description`, and `metadata` fields | `ARTMessageOperation` (optional) |
+| params | Optional parameters sent as part of the request. As Ably adds supported parameters, they will be documented on the [docs pages](https://ably.com/docs) | `[String: ARTStringifiable]` (optional) |
+| callback | A success or failure callback function. On success, it receives an `ARTUpdateDeleteResult` object containing the new version of the message | - |
+
+</If>
+
+<If lang="javascript,nodejs">
+##### Returns
+
+Returns a promise which, upon success, will be fulfilled with an [`UpdateDeleteResult`](https://ably.com/docs/api/realtime-sdk/types.md#update-delete-result) object containing the new version of the message. Upon failure, the promise will be rejected with an [`ErrorInfo`](https://ably.com/docs/api/realtime-sdk/types.md#error-info) object which explains the error.
+</If>
+
+<If lang="java,python">
+##### Returns
+
+Returns an [`UpdateDeleteResult`](https://ably.com/docs/api/realtime-sdk/types.md#update-delete-result) object containing the new version of the message.
+</If>
+
+<If lang="swift">
+##### Callback result
+
+On success, the callback receives an [`ARTUpdateDeleteResult`](https://ably.com/docs/api/realtime-sdk/types.md#update-delete-result) object containing the new version of the message.
+
+On failure, the callback receives an [`ARTErrorInfo`](https://ably.com/docs/api/realtime-sdk/types.md#error-info) object which explains the error.
+</If>
+
+#### getMessageVersions
+
+<If lang="javascript,nodejs">
+`getMessageVersions(serialOrMessage: string | Message, params?: Record<string, any>): Promise<PaginatedResult<Message>>`
+</If>
+
+<If lang="java">
+`PaginatedResult<Message> getMessageVersions(String serial, Param[] params)`
+</If>
+
+<If lang="python">
+`PaginatedResult get_message_versions(serial_or_message, **params)`
+</If>
+
+<If lang="swift">
+`getMessageVersions(withSerial serial: String, callback: @escaping (ARTPaginatedResult<ARTMessage>?, ARTErrorInfo?) -> Void)`
+</If>
+
+Retrieves all historical versions of a specific message, ordered by version. This includes the original message and all subsequent updates or delete operations. Requires the **history** [capability](https://ably.com/docs/auth/capabilities.md).
+
+See [updating and deleting messages: versions](https://ably.com/docs/messages/updates-deletes.md#versions) for more information.
+
+##### Parameters
+
+<If lang="javascript,nodejs,java,python">
+
+| Parameter | Description | Type |
+|-----------|-------------|------|
+| serialOrMessage | Either the serial identifier string of the message whose versions are to be retrieved, or a [`Message`](https://ably.com/docs/api/realtime-sdk/messages.md) object containing a populated `serial` field | `string` or [`Message`](https://ably.com/docs/api/realtime-sdk/messages.md) |
+| params | Optional parameters sent as part of the query string | <If lang="javascript,nodejs">`Record<string, any>`</If><If lang="java">`Param[]`</If> (optional) |
+
+</If>
+
+<If lang="swift">
+
+| Parameter | Description | Type |
+|-----------|-------------|------|
+| serial | A serial identifier string of the message whose versions are to be retrieved | `String` |
+| callback | A success or failure callback function. On success, it receives an [`ARTPaginatedResult`](#paginated-result) object containing an array of [`ARTMessage`](#message) objects representing all versions of the message. | - |
+
+</If>
+
+<If lang="javascript,nodejs">
+##### Returns
+
+Returns a promise which, upon success, will be fulfilled with a [`PaginatedResult`](#paginated-result) object containing an array of [`Message`](https://ably.com/docs/api/realtime-sdk/messages.md) objects representing all versions of the message. Upon failure, the promise will be rejected with an [`ErrorInfo`](https://ably.com/docs/api/realtime-sdk/types.md#error-info) object which explains the error.
+</If>
+
+<If lang="java,python">
+##### Returns
+
+On success, the returned [`PaginatedResult`](#paginated-result) encapsulates an array of [`Message`](#message) objects corresponding to the current page of results. [`PaginatedResult`](#paginated-result) supports pagination using [`next`](#paginated-result) and [`first`](#paginated-result) methods.
+
+Failure to retrieve the message versions will raise an [`AblyException`](https://ably.com/docs/api/realtime-sdk/types.md#ably-exception)
+</If>
+
+<If lang="swift">
+##### Callback result
+
+On success, the callback receives a [`ARTPaginatedResult`](#paginated-result) encapsulating an array of [`ARTMessage`](#message) version objects corresponding to the current page of results. [`ARTPaginatedResult`](#paginated-result) supports pagination using [`next()`](#paginated-result) and [`first()`](#paginated-result) methods.
+
+On failure to retrieve message versions, the callback receives an [`ARTErrorInfo`](https://ably.com/docs/api/realtime-sdk/types.md#error-info) object with the failure reason.
+</If>
+
+</If>
+
+## Related types 
+
+### <If lang="javascript,nodejs,flutter,python,go">Message</If><If lang="objc,swift">ARTMessage</If><If lang="ruby">Ably::Models::Message</If><If lang="php">Ably\Models\Message</If><If lang="java">io.ably.lib.types.Message</If><If lang="csharp">IO.Ably.Message</If>
+
+A `Message` represents an individual message that is sent to or received from Ably.
+
+#### <If lang="javascript,nodejs,php,python,ruby,java,swift,objc,flutter,go">name</If><If lang="csharp">Name</If>
+
+The event name, if provided. <br />_Type: `String`_
+
+#### <If lang="javascript,nodejs,php,python,ruby,java,swift,objc,flutter,go">data</If><If lang="csharp">Data</If>
+
+The message payload, if provided.<br />_Type: <If lang="javascript,nodejs,go">`String`, `StringBuffer`, `JSON Object`</If><If lang="java">`String`, `ByteArray`, `JSONObject`, `JSONArray`</If><If lang="csharp">`String`, `byte[]`, `plain C# object that can be serialized to JSON`</If><If lang="ruby">`String`, `Binary` (ASCII-8BIT String), `Hash`, `Array`</If><If lang="python">`String`, `Bytearray`, `Dict`, `List`</If><If lang="php">`String`, `Binary String`, `Associative Array`, `Array`</If><If lang="objc">`NSString *`, `NSData *`, `NSDictionary *`, `NSArray *`</If><If lang="swift">`String`, `NSData`, `Dictionary`, `Array`</If><If lang="flutter">`String`, `Map`, `List`</If>_
+
+#### <If lang="javascript,nodejs,php,python,ruby,java,swift,objc,flutter,go">extras</If><If lang="csharp">Extras</If>
+
+Metadata and/or ancillary payloads, if provided. Valid payloads include [`push`](https://ably.com/docs/push/publish.md#payload), [`headers`](https://ably.com/docs/pub-sub/advanced.md#headers) (a map of strings to strings for arbitrary customer-supplied metadata), [`ephemeral`](https://ably.com/docs/pub-sub/advanced.md#ephemeral), and [`privileged`](https://ably.com/docs/platform/integrations/webhooks.md#skipping) objects.<br />_Type: <If lang="java">`JSONObject`, `JSONArray`</If><If lang="csharp">plain C# object that can be converted to JSON</If><If lang="javascript,nodejs,go,flutter">`JSON Object`</If><If lang="ruby">`Hash`, `Array`</If><If lang="python">`Dict`, `List`</If><If lang="swift">`Dictionary`, `Array`</If><If lang="objc">`NSDictionary *`, `NSArray *`</If><If lang="php">`Associative Array`, `Array`</If>_
+
+#### <If lang="javascript,nodejs,php,python,ruby,java,swift,objc,flutter,go">id</If><If lang="csharp">Id</If>
+
+A Unique ID assigned by Ably to this message.<br />_Type: `String`_
+
+#### <If lang="javascript,nodejs,flutter,java,php,objc,swift,go">clientId</If><If lang="csharp">ClientId</If><If lang="ruby,python">client_id</If>
+
+The client ID of the publisher of this message.<br />_Type: `String`_
+
+#### <If lang="javascript,nodejs,flutter,java,php,objc,swift,go">connectionId</If><If lang="csharp">ConnectionId</If><If lang="ruby,python">connection_id</If>
+
+The connection ID of the publisher of this message.<br />_Type: `String`_
+
+#### <If lang="javascript,nodejs,flutter,java,php,objc,swift,go">connectionKey</If><If lang="csharp,go">ConnectionKey</If><If lang="ruby,python">connection_key</If>
+
+A connection key, which can optionally be included for a REST publish as part of the [publishing on behalf of a realtime client functionality](https://ably.com/docs/pub-sub/advanced.md#publish-on-behalf).<br />_Type: `String`_
+
+#### <If lang="javascript,nodejs,php,python,ruby,java,swift,objc,flutter,go">timestamp</If><If lang="csharp">Timestamp</If>
+
+Timestamp when the message was first received by the Ably, as <If lang="javascript,nodejs,php,python,java,csharp,swift,objc,go,flutter">milliseconds since the epoch</If><If lang="ruby">a `Time` object</If>.<br />_Type: <If lang="javascript,nodejs,php,python,go,flutter">`Integer`</If><If lang="java">`Long Integer`</If><If lang="csharp">`DateTimeOffset`</If><If lang="ruby">`Time`</If><If lang="objc,swift">`NSDate`</If>_
+
+#### <If lang="javascript,nodejs,php,python,ruby,java,swift,objc,flutter,go">encoding</If><If lang="csharp">Encoding</If>
+
+This will typically be empty as all messages received from Ably are automatically decoded client-side using this value. However, if the message encoding cannot be processed, this attribute will contain the remaining transformations not applied to the `data` payload.<br />_Type: `String`_
+
+<If lang="javascript,nodejs,objc,swift,java,python">
+
+### action 
+
+The action type of the message, one of the [`MessageAction`](https://ably.com/docs/api/realtime-sdk/types.md#message-action) enum values.<br />_Type: `enum { MESSAGE_CREATE, MESSAGE_UPDATE, MESSAGE_DELETE, MESSAGE_APPEND, META, MESSAGE_SUMMARY }`_
+
+### serial 
+
+A server-assigned identifier that will be the same in all future updates of this message. It can be used to add [annotations](https://ably.com/docs/messages/annotations.md) to a message or to [update or delete](https://ably.com/docs/messages/updates-deletes.md) it. Serial will only be set if you enable annotations, updates, deletes, and appends in [rules](https://ably.com/docs/channels.md#rules).<br />_Type: `String`_
+
+### annotations 
+
+An object containing information about annotations that have been made to the object.<br />_Type: [`MessageAnnotations`](https://ably.com/docs/api/realtime-sdk/types.md#message-annotations)_
+
+### version 
+
+An object containing version metadata for messages that have been updated or deleted. See [updating and deleting messages](https://ably.com/docs/messages/updates-deletes.md) for more information.<br />_Type: [`MessageVersion`](#message-version)_
+
+</If>
+
+### Message constructors
+
+#### Message.fromEncoded
+
+`Message.fromEncoded(Object encodedMsg, ChannelOptions channelOptions?) -> Message`
+
+A static factory method to create a [`Message`](https://ably.com/docs/api/realtime-sdk/types.md#message) from a deserialized `Message`-like object encoded using Ably's wire protocol.
+
+##### Parameters
+
+| Parameter | Description | Type |
+|-----------|-------------|------|
+| encodedMsg | A `Message`-like deserialized object | `Object` |
+| channelOptions | An optional [`ChannelOptions`](https://ably.com/docs/api/realtime-sdk/types.md#channel-options). If you have an encrypted channel, use this to allow the library to decrypt the data | `Object` |
+
+##### Returns
+
+A [`Message`](https://ably.com/docs/api/realtime-sdk/types.md#message) object
+
+#### Message.fromEncodedArray
+
+`Message.fromEncodedArray(Object[] encodedMsgs, ChannelOptions channelOptions?) -> Message[]`
+
+A static factory method to create an array of [`Messages`](https://ably.com/docs/api/realtime-sdk/types.md#message) from an array of deserialized `Message`-like object encoded using Ably's wire protocol.
+
+##### Parameters
+
+| Parameter | Description | Type |
+|-----------|-------------|------|
+| encodedMsgs | An array of `Message`-like deserialized objects | `Array` |
+| channelOptions | An optional [`ChannelOptions`](https://ably.com/docs/api/realtime-sdk/types.md#channel-options). If you have an encrypted channel, use this to allow the library to decrypt the data | `Object` |
+
+##### Returns
+
+An `Array` of [`Message`](https://ably.com/docs/api/realtime-sdk/types.md#message) objects
+
+### <If lang="javascript,nodejs,flutter,go">ChannelOptions Object</If><If lang="objc,swift">ARTChannelOptions</If><If lang="ruby">ChannelOptions Hash</If><If lang="python">ChannelOptions keyword arguments</If><If lang="php">ChannelOptions Array</If><If lang="java">io.ably.lib.types.ChannelOptions</If><If lang="csharp">IO.Ably.ChannelOptions</If>
+
+Channel options are used for <If lang="javascript,nodejs,java,swift,objc,csharp">setting [channel parameters](https://ably.com/docs/channels/options.md) and</If> [configuring encryption](https://ably.com/docs/channels/options/encryption.md).
+
+<If lang="javascript,nodejs">
+
+`ChannelOptions`, a plain JavaScript object, may optionally be specified when instancing a [`Channel`](https://ably.com/docs/channels.md), and this may be used to specify channel-specific options. The following attributes can be defined on the object:
+
+</If>
+
+<If lang="ruby">
+
+`ChannelOptions`, a Hash object, may optionally be specified when instancing a [`Channel`](https://ably.com/docs/channels.md), and this may be used to specify channel-specific options. The following key symbol values can be added to the Hash:
+
+</If>
+
+<If lang="php">
+
+`ChannelOptions`, an Associative Array, may optionally be specified when instancing a [`Channel`](https://ably.com/docs/channels.md), and this may be used to specify channel-specific options. The following named keys and values can be added to the Associated Array:
+
+</If>
+
+<If lang="java,swift,objc,go">
+
+<If lang="swift,objc">`ART`</If><If lang="java">`io.ably.lib.types.`</If>`ChannelOptions` may optionally be specified when instancing a [`Channel`](https://ably.com/docs/channels.md), and this may be used to specify channel-specific options.
+
+</If>
+
+<If lang="csharp">
+
+`IO.Ably.ChannelOptions` may optionally be specified when instancing a [`Channel`](https://ably.com/docs/channels.md), and this may be used to specify channel-specific options.
+
+</If>
+
+#### <If lang="javascript,nodejs">Properties</If><If lang="java">Members</If><If lang="ruby">Attributes</If>
+
+<If lang="php,python,ruby,go,flutter">
+
+| Parameter | Description | Type |
+|-----------|-------------|------|
+| <If lang="ruby">:cipher</If><If lang="csharp,go">CipherParams</If><If lang="javascript,nodejs,java,swift,objc,php,python,flutter">cipher</If> | Requests encryption for this channel when not null, and specifies encryption-related parameters (such as algorithm, chaining mode, key length and key). See [an example](https://ably.com/docs/channels/options/encryption.md) | [`CipherParams`](https://ably.com/docs/api/realtime-sdk/encryption.md#cipher-params)<If lang="javascript,nodejs,flutter"> or an options object containing at a minimum a `key`</If><If lang="java"> or a `Param[]` list containing at a minimum a `key`</If><If lang="ruby"> or an options hash containing at a minimum a `key`</If><If lang="php"> or an Associative Array containing at a minimum a `key`</If> |
+
+</If>
+
+<If lang="javascript,nodejs,java,swift,objc,csharp">
+
+| Parameter | Description | Type |
+|-----------|-------------|------|
+| <If lang="javascript,nodejs,java,swift,objc">params</If><If lang="csharp">Params</If> | Optional [parameters](https://ably.com/docs/channels/options.md) which specify behaviour of the channel | <If lang='java'>`Map<String, String>`</If><If lang='javascript,nodejs,objc,csharp,swift'>`JSON Object`</If> |
+| <If lang="javascript,nodejs,java,swift,objc">cipher</If><If lang="csharp">CipherParams</If> | Requests encryption for this channel when not null, and specifies encryption-related parameters (such as algorithm, chaining mode, key length and key). See [an example](https://ably.com/docs/api/realtime-sdk/encryption.md#getting-started) | [`CipherParams`](https://ably.com/docs/api/realtime-sdk/encryption.md#cipher-params)<If lang="javascript,nodejs"> or an options object containing at a minimum a `key`</If><If lang="java"> or a `Param[]` list containing at a minimum a `key`</If><If lang="ruby"> or an options hash containing at a minimum a `key`</If><If lang="php"> or an Associative Array containing at a minimum a `key`</If> |
+
+</If>
+
+<If lang="java">
+
+### Static methods
+
+#### withCipherKey
+
+`static ChannelOptions.withCipherKey(Byte[] or String key)`
+
+A helper method to generate a `ChannelOptions` for the simple case where you only specify a key.
+
+##### Parameters
+
+| Parameter | Description | Type |
+|-----------|-------------|------|
+| key | A binary `Byte[]` array or a base64-encoded `String` | `Byte[]` or `String` |
+
+##### Returns
+
+On success, the method returns a complete `ChannelOptions` object. Failure will raise an [`AblyException`](https://ably.com/docs/api/realtime-sdk/types.md#ably-exception).
+
+</If>
+
+<If lang="javascript,nodejs">
+
+### PublishOptions
+
+Options passed to a [`publish()`](#publish) operation to customize its behavior.
+
+#### Parameters
+
+| Parameter | Description | Type |
+|-----------|-------------|------|
+| quickAck | Reduces the latency of REST publishes, though provides a [slightly lower quality of service](https://faqs.ably.com/why-are-some-rest-publishes-on-a-channel-slow-and-then-typically-faster-on-subsequent-publishes) | `Boolean` |
+
+</If>
+
+<If lang="csharp">
+
+### PaginatedRequestParams
+
+`PaginatedRequestParams` is a type that encapsulates the parameters for a history queries. For example usage see [`Channel#History`](https://ably.com/docs/api/realtime-sdk/history.md#channel-history).
+
+#### Members
+
+| Parameter | Description | Type |
+|-----------|-------------|------|
+| Start | The start of the queried interval. _default: null_ | `DateTimeOffset` |
+| End | The end of the queried interval. _default: null_ | `DateTimeOffset` |
+| Limit | Limits the number of items returned by history or stats. _default: null_ | `Integer` |
+| Direction | Enum which is either `Forwards` or `Backwards`. _default: Backwards_ | `Direction` enum |
+| ExtraParameters | Optionally any extra query parameters that may be passed to the query. This is mainly used internally by the library to manage paging. | `Dictionary<string, string>` |
+
+</If>
+
+### <If lang="javascript,nodejs,flutter,python,go">PaginatedResult</If><If lang="objc,swift">ARTPaginatedResult</If><If lang="ruby">Ably::Models::PaginatedResult</If><If lang="php">Ably\Models\PaginatedResult</If><If lang="java">io.ably.lib.types.PaginatedResult</If><If lang="csharp">IO.Ably.PaginatedResult</If>
+
+A `PaginatedResult` is a type that represents a page of results for all message and presence history, stats and REST presence requests. The response from a [Ably REST API paginated query](https://ably.com/docs/api/rest-api.md#pagination) is accompanied by metadata that indicates the relative queries available to the `PaginatedResult` object.
+
+#### <If lang="javascript,nodejs">Properties</If><If lang="java">Members</If><If lang="ruby">Attributes</If>
+
+| Property | Description | Type |
+|----------|-------------|------|
+| <If lang="javascript,nodejs,php,python,ruby,java,swift,objc,flutter">items</If><If lang="csharp,go">Items</If> | contains the current page of results (for example an Array of [`Message`](#message) or [`PresenceMessage`](#presence-message) objects for a channel history request) | <If lang="javascript,nodejs,php,ruby,java,swift,objc,go,flutter">`Array <Message, Presence, Stats>`</If><If lang="csharp,python">`List <Message, Presence, Stats>`</If> |
+
+#### Methods
+
+##### <If lang="javascript,nodejs,php,python,ruby,java,swift,objc,go,flutter">first</If><If lang="csharp">First</If>
+
+<If lang="javascript,nodejs">
+
+`first(): Promise<PaginatedResult>`
+
+</If>
+
+<If lang="ruby">
+
+`PaginatedResult first`
+
+</If>
+
+<If lang="php">
+
+`PaginatedResult first()`
+
+</If>
+
+<If lang="python">
+
+`PaginatedResult first()`
+
+</If>
+
+<If lang="csharp">
+
+`Task<PaginatedResult<T>> FirstAsync()`
+
+</If>
+
+<If lang="java">
+
+`PaginatedResult first()`
+
+</If>
+
+<If lang="swift,objc">
+
+`first(callback: (ARTPaginatedResult?, ARTErrorInfo?) -> Void)`
+
+</If>
+
+<If lang="go">
+
+`First() (PaginatedResult, error)`
+
+</If>
+
+<If lang="csharp,flutter,java,objc,php,python,ruby,swift,go">
+
+Returns a new `PaginatedResult` for the first page of results. <If lang="ruby">When using the Realtime library, the `first` method returns a [Deferrable](https://ably.com/docs/api/realtime-sdk/types.md#deferrable) and yields a [`PaginatedResult`](#paginated-result).</If><If lang="csharp">The method is asynchronous and returns a Task which needs to be awaited to get the [`PaginatedResult`](#paginated-result).</If>
+
+</If>
+<If lang="javascript,nodejs">
+
+Returns a promise. On success, the promise is fulfilled with a new `PaginatedResult` for the first page of results. On failure, the promise is rejected with an [`ErrorInfo`](https://ably.com/docs/api/realtime-sdk/types.md#error-info) object that details the reason why it was rejected.
+
+</If>
+
+##### <If lang="javascript,nodejs,php,ruby,java,swift,objc,go,flutter">hasNext</If><If lang="csharp">HasNext</If><If lang="ruby">has_next?</If><If lang="python">has_next</If>
+
+<If lang="javascript,nodejs,php,python,java,swift,objc">
+
+`Boolean hasNext()`
+
+</If>
+
+<If lang="ruby">
+
+`Boolean has_next?`
+
+</If>
+
+<If lang="csharp">
+
+`Boolean HasNext()`
+
+</If>
+
+<If lang="go">
+
+`HasNext() (bool)`
+
+</If>
+
+Returns `true` if there are more pages available by calling <If lang="javascript,nodejs,php,python,ruby,java,swift,objc,flutter">`next`</If><If lang="csharp,go">`Next`</If> and returns `false` if this page is the last page available.
+
+##### <If lang="javascript,nodejs,php,java,swift,objc,go,flutter">isLast</If><If lang="csharp">IsLast</If><If lang="ruby">last?</If><If lang="python">is_last</If>
+
+<If lang="javascript,nodejs,php,python,java,swift,objc">
+
+`Boolean isLast()`
+
+</If>
+
+<If lang="ruby">
+
+`Boolean last?`
+
+</If>
+
+<If lang="csharp">
+
+`Boolean IsLast()`
+
+</If>
+
+<If lang="go">
+
+`IsLast() (bool)`
+
+</If>
+
+Returns `true` if this page is the last page and returns `false` if there are more pages available by calling <If lang="javascript,nodejs,php,python,ruby,java,swift,objc,flutter">`next`</If><If lang="csharp,go">`Next`</If> available.
+
+##### <If lang="javascript,nodejs,php,python,ruby,java,swift,objc,go,flutter">next</If><If lang="csharp">Next</If>
+
+<If lang="javascript,nodejs">
+
+`next(): Promise<PaginatedResult | null>`
+
+</If>
+
+<If lang="ruby">
+
+`PaginatedResult next`
+
+</If>
+
+<If lang="php">
+
+`PaginatedResult next()`
+
+</If>
+
+<If lang="python">
+
+`PaginatedResult next()`
+
+</If>
+
+<If lang="csharp">
+
+`Task<PaginatedResult<T>> NextAsync()`
+
+</If>
+
+<If lang="java">
+
+`PaginatedResult next()`
+
+</If>
+
+<If lang="swift,objc">
+
+`next(callback: (ARTPaginatedResult?, ARTErrorInfo?) -> Void)`
+
+</If>
+
+<If lang="go">
+
+`Next() (PaginatedResult, error)`
+
+</If>
+
+Returns a new `PaginatedResult` loaded with the next page of results. If there are no further pages, then <If lang="javascript,nodejs,php,go,flutter">`null`</If><If lang="csharp">a blank PaginatedResult will be returned</If><If lang="java">`Null`</If><If lang="python">`None`</If><If lang="objc,swift">`nil`</If> is returned. <If lang="csharp">The method is asynchronous and return a Task which needs to be awaited to get the `PaginatedResult`</If><If lang="ruby">When using the Realtime library, the `first` method returns a [Deferrable](https://ably.com/docs/api/realtime-sdk/types.md#deferrable) and yields a [`PaginatedResult`](#paginated-result).</If>
+
+<If lang="javascript,nodejs">
+
+Returns a promise. On success, the promise is fulfilled with a new `PaginatedResult` loaded with the next page of results. If there are no further pages, then `null` is returned. On failure, the promise is rejected with an [`ErrorInfo`](https://ably.com/docs/api/realtime-sdk/types.md#error-info) object that details the reason why it was rejected.
+
+##### current
+
+`current(): Promise<PaginatedResult>`
+
+Returns a promise. On success, the promise is fulfilled with a new `PaginatedResult` loaded with the current page of results. On failure, the promise is rejected with an [`ErrorInfo`](https://ably.com/docs/api/realtime-sdk/types.md#error-info) object that details the reason why it was rejected.
+
+</If>
+
+##### Example
+
+<If lang="javascript">
+
+<Code>
+
+###### Javascript
+
+```
+const paginatedResult = await channel.history();
+console.log('Page 0 item 0:' + paginatedResult.items[0].data);
+const nextPage = await paginatedResult.next();
+console.log('Page 1 item 1: ' + nextPage.items[1].data);
+console.log('Last page?: ' + nextPage.isLast());
+```
+</Code>
+
+</If>
+<If lang="nodejs">
+
+<Code>
+
+###### Nodejs
+
+```
+const paginatedResult = await channel.history();
+console.log('Page 0 item 0:' + paginatedResult.items[0].data);
+const nextPage = await paginatedResult.next();
+console.log('Page 1 item 1: ' + nextPage.items[1].data);
+console.log('Last page?: ' + nextPage.isLast());
+```
+</Code>
+
+</If>
+<If lang="java">
+
+<Code>
+
+###### Java
+
+```
+PaginatedResult firstPage = channel.history();
+System.out.println("Page 0 item 0:" + firstPage.items[0].data);
+if (firstPage.hasNext) {
+  PaginatedResult nextPage = firstPage.next();
+  System.out.println("Page 1 item 1:" + nextPage.items[1].data);
+  System.out.println("More pages?:" + Strong.valueOf(nextPage.hasNext()));
+};
+```
+</Code>
+
+</If>
+<If lang="csharp">
+
+<Code>
+
+###### Csharp
+
+```
+PaginatedResult<Message> firstPage = await channel.HistoryAsync(null);
+Message firstMessage = firstPage.Items[0];
+Console.WriteLine("Page 0 item 0: " + firstMessage.data);
+if (firstPage.HasNext)
+{
+    var nextPage = await firstPage.NextAsync();
+    Console.WriteLine("Page 1 item 1:" + nextPage.Items[1].data);
+    Console.WriteLine("More pages?: " + nextPage.HasNext());
+}
+```
+</Code>
+
+</If>
+<If lang="ruby">
+
+<Code>
+
+###### Ruby
+
+```
+# When using the REST sync library
+first_page = channel.history
+puts "Page 0 item 0: #{first_page.items[0].data}"
+if first_page.has_next?
+  next_page = first_page.next
+  puts "Page 1 item 1: #{next_page.items[1].data}"
+  puts "Last page?: #{next_page.is_last?}"
+end
+
+# When using the Realtime EventMachine library
+channel.history do |first_page|
+  puts "Page 0 item 0: #{first_page.items[0].data}"
+  if first_page.has_next?
+    first_page.next do |next_page|
+      puts "Page 1 item 1: #{next_page.items[1].data}"
+      puts "Last page?: #{next_page.is_last?}"
+    end
+  end
+end
+```
+</Code>
+
+</If>
+<If lang="python">
+
+<Code>
+
+###### Python
+
+```
+result_page = channel.history()
+print 'Page 0 item 0: ' + str(result_page.items[0].data)
+if result_page.has_next():
+  next_page = result_page.next()
+  print 'Page 1 item 1: ' + str(next_page.items[1].data)
+  print 'Last page?: ' + str(next_page.is_last())
+```
+</Code>
+
+</If>
+<If lang="php">
+
+<Code>
+
+###### Php
+
+```
+$firstPage = $channel.history();
+echo("Page 0 item 0: " . $firstPage->items[0]->data);
+if ($firstPage->hasNext()) {
+  $nextPage = $firstPage->next();
+  echo("Page 1 item 1: " . $nextPage->items[1]->data);
+  echo("Last page?: " . $nextPage->isLast());
+}
+```
+</Code>
+
+</If>
+<If lang="objc">
+
+<Code>
+
+###### Objc
+
+```
+[channel history:^(ARTPaginatedResult<ARTMessage *> *paginatedResult, ARTErrorInfo *error) {
+    NSLog(@"Page 0 item 0: %@", paginatedResult.items[0].data);
+    [paginatedResult next:^(ARTPaginatedResult<ARTMessage *> *nextPage, ARTErrorInfo *error) {
+        NSLog(@"Page 1 item 1: %@", nextPage.items[1].data);
+        NSLog(@"Last page?: %d", nextPage.isLast());
+    }];
+}];
+```
+</Code>
+
+</If>
+<If lang="swift">
+
+<Code>
+
+###### Swift
+
+```
+channel.history { paginatedResult, error in
+    guard let paginatedResult = paginatedResult else {
+        print("No results available")
+        return
+    }
+    print("Page 0 item 0: \((paginatedResult.items[0] as! ARTMessage).data)")
+    paginatedResult.next { nextPage, error in
+        guard let nextPage = nextPage else {
+            print("No next page available")
+            return
+        }
+        print("Page 1 item 1: \((nextPage.items[1] as! ARTMessage).data)")
+        print("Last page? \(nextPage.isLast())")
+    }
+}
+```
+</Code>
+
+</If>
+<If lang="go">
+
+<Code>
+
+###### Go
+
+```
+  page0, err := channel.History(nil)
+  fmt.Println("Page. 0 item 0: %s\n", page0.Messages[0].Data)
+  page1, err := page0.Next()
+  fmt.Println("Page. 1 item 1: %s\n", page1.Messages[1].Data)
+  fmt.Println("Last page? %s\n", page1.IsLast())
+```
+</Code>
+
+</If>
+<If lang="java">
+
+### io.ably.lib.types.Param
+
+`Param` is a type encapsulating a key/value pair. This type is used frequently in method parameters allowing key/value pairs to be used more flexible, see [`Channel#history`](https://ably.com/docs/api/realtime-sdk/history.md#channel-history) for an example.
+
+Please note that `key` and `value` attributes are always strings. If an `Integer` or other value type is expected, then you must coerce that type into a `String`.
+
+#### Members
+
+| Parameter | Description | Type |
+|-----------|-------------|------|
+| key | The key value | `String` |
+| value | The value associated with the `key` | `String` |
+
+</If>
+
+## Related Topics
+
+- [Constructor](https://ably.com/docs/api/rest-sdk.md): Client Library SDK REST API Reference constructor documentation.
+- [Channel Status](https://ably.com/docs/api/rest-sdk/channel-status.md): Client Library SDK REST API Reference Channel Status documentation.
+- [Messages](https://ably.com/docs/api/rest-sdk/messages.md): Client Library SDK REST API Reference Message documentation.
+- [Presence](https://ably.com/docs/api/rest-sdk/presence.md): Presence events provide clients with information about the status of other clients 'present' on a channel
+- [Authentication](https://ably.com/docs/api/rest-sdk/authentication.md): Client Library SDK REST API Reference Authentication documentation.
+- [History](https://ably.com/docs/api/rest-sdk/history.md): Client Library SDK REST API Reference History documentation.
+- [Push Notifications - Admin](https://ably.com/docs/api/rest-sdk/push-admin.md): Client Library SDK REST API Reference Push documentation.
+- [Encryption](https://ably.com/docs/api/rest-sdk/encryption.md): Client Library SDK REST API Reference Crypto documentation.
+- [Statistics](https://ably.com/docs/api/rest-sdk/statistics.md): Client Library SDK REST API Reference Statistics documentation.
+- [Types](https://ably.com/docs/api/rest-sdk/types.md): Client Library SDK REST API Reference Types documentation.
+
+## Documentation Index
+
+To discover additional Ably documentation:
+
+1. Fetch [llms.txt](https://ably.com/llms.txt) for the canonical list of available pages.
+2. Identify relevant URLs from that index.
+3. Fetch target pages as needed.
+
+Avoid using assumed or outdated documentation paths.

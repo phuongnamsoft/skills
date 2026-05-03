@@ -1,0 +1,42 @@
+# Azure Content Safety
+
+[Azure Content Safety](https://azure.microsoft.com/en-us/products/ai-services/ai-content-safety) is a powerful AI service that can be used to moderate content in chat rooms.
+
+The Azure Content Safety integration can be applied to chat rooms so that you can use Azure's text moderation capabilities to detect and handle inappropriate content before it's published to other users.
+
+## Integration setup 
+
+Configure the integration in your [Ably dashboard](https://ably.com/accounts/any/apps/any/integrations) or using the [Control API](https://ably.com/docs/platform/account/control-api.md).
+
+The following are the fields specific to Azure Content Safety configuration:
+
+| Field | Description |
+| ----- | ----------- |
+| Azure API key | The API key for your Azure Content Safety resource. |
+| Azure Endpoint | The endpoint URL for your Azure Content Safety resource (for example, `https://your-resource.cognitiveservices.azure.com`). |
+| Thresholds | A map of content safety categories to severity levels. Azure supports four severity levels: `0` (safe), `2` (low), `4` (medium), and `6` (high). When moderating text, any message deemed to be at or above a specified threshold will be rejected and not published to the chat room. Categories include `Hate`, `SelfHarm`, `Sexual`, and `Violence`. |
+
+For additional configuration options shared across all before-publish moderation rules, see the [common configuration fields](https://ably.com/docs/chat/moderation.md#common-config).
+
+## Handling rejections 
+
+If a message fails moderation the message will not be published and the publish request will be rejected.
+
+Moderation rejections will use error code `42213`.
+
+## Related Topics
+
+- [Hive (Model Only)](https://ably.com/docs/chat/moderation/direct/hive-model-only.md): Detect and remove unwanted content in a Chat Room using Hive AI.
+- [Hive (Dashboard)](https://ably.com/docs/chat/moderation/direct/hive-dashboard.md): Detect and remove unwanted content in a Chat Room using Hive AI, providing human moderators a place to review and act on content.
+- [Tisane](https://ably.com/docs/chat/moderation/direct/tisane.md): Detect and remove unwanted content in a Chat Room using Tisane AI.
+- [Bodyguard](https://ably.com/docs/chat/moderation/direct/bodyguard.md): Detect and remove unwanted content in a Chat Room using Bodyguard AI.
+
+## Documentation Index
+
+To discover additional Ably documentation:
+
+1. Fetch [llms.txt](https://ably.com/llms.txt) for the canonical list of available pages.
+2. Identify relevant URLs from that index.
+3. Fetch target pages as needed.
+
+Avoid using assumed or outdated documentation paths.

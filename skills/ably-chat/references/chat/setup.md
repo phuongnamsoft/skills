@@ -1,0 +1,693 @@
+# SDK setup
+
+Use these instructions to install, authenticate and instantiate the Chat SDK.
+
+<Aside data-type='note'>
+If you have any feedback or feature requests, [let us know](https://forms.gle/SmCLNFoRrYmkbZSf8)
+</Aside>
+
+## Authentication 
+
+<Aside data-type='important'>
+Client-side applications must use [JWT authentication](https://ably.com/docs/auth/token/jwt.md). API keys should never be exposed in client-side code because they don't expire and cannot be scoped to specific users.
+</Aside>
+
+Chat requires an authenticated client with a `clientId` to identify users. The recommended approach is:
+
+1. **Client-side apps** (browsers, iOS, Android): Use [JWT authentication](https://ably.com/docs/auth/token/jwt.md) with `authCallback` to fetch JWTs from your server
+2. **Server-side apps** (Node.js, Python, etc.): Use your API key directly
+
+[Sign up](https://ably.com/sign-up) to Ably to create an API key in the [dashboard](https://ably.com/dashboard) or use the [Control API](https://ably.com/docs/platform/account/control-api.md) to create an API key programmatically. Your server will use this key to issue tokens to clients.
+
+API keys and tokens have a set of [capabilities](https://ably.com/docs/auth/capabilities.md) assigned to them that specify which operations, such as subscribe or publish can be performed on which resources. To use the Chat SDK, the API key requires the following capabilities depending on which features are being used:
+
+| Feature | Capabilities |
+| ------- | ------------ |
+| Send messages | `publish` |
+| Receive messages | `subscribe` |
+| Update message | `message-update-any` or `message-update-own` |
+| Delete message | `message-delete-any` or `message-delete-own` |
+| Message history | `subscribe`, `history` |
+| Message reactions | `annotation-publish`, optionally `annotation-subscribe` |
+| Presence | `subscribe`, `presence` |
+| Room occupancy | `subscribe`, `channel-metadata` |
+| Typing indicators | `publish`, `subscribe` |
+| Room reactions | `publish`, `subscribe` |
+
+When setting the capabilities for Chat, you can apply them to specific chat rooms, a group of chat rooms in a common namespace, or all chat rooms:
+
+* `my-chat-room` - a specific room
+* `dms:*` - all rooms in the `dms:` namespace
+* `*` - all chat rooms
+
+For more guidance, see the [capabilities documentation](https://ably.com/docs/auth/capabilities.md) and [Chat authentication](https://ably.com/docs/chat/authentication.md) for room-scoped examples.
+
+### Client identification 
+
+Every Chat client must have a `clientId` - this is a **hard requirement**. The Chat SDK uses the `clientId` to identify who sends messages, who is present in a room, and who is typing.
+
+Your auth server sets the `clientId` when creating tokens. This ensures users can't impersonate each other - the identity is controlled server-side, not by the client.
+
+If you try to connect without a `clientId`, the connection will fail.
+
+<If lang="javascript,react">
+
+### User claims 
+
+User claims enable you to attach server-signed metadata to a user's authentication token that is automatically included on all events they produce in a chat room. This metadata is set server-side via [JWT claims](https://ably.com/docs/auth/token.md#jwt) and cannot be modified by clients, making it suitable for trusted information such as display names, roles, or custom attributes.
+
+User claims are scoped to individual chat rooms using the `ably.room.<roomName>` key in the JWT payload. The value is an arbitrary string, commonly a JSON-encoded object. When a user publishes a message, enters presence, sends a typing indicator, or sends a reaction in a matching room, the claim is automatically copied by Ably servers into the `userClaim` field of the event.
+
+#### Set user claims in your JWT 
+
+Include an `ably.room.<roomName>` key in your JWT claims when generating tokens on your server:
+
+<Code>
+
+##### Javascript
+
+```
+const claims = {
+  'x-ably-capability': JSON.stringify({ '*': ['*'] }),
+  'x-ably-clientId': 'user-123',
+  'ably.room.my-chat-room': JSON.stringify({ display_name: 'Alice', role: 'moderator' }),
+  iat: Math.floor(Date.now() / 1000),
+  exp: Math.floor(Date.now() / 1000) + 3600,
+};
+```
+</Code>
+
+You can also use wildcard patterns to apply claims across multiple rooms:
+
+| Pattern | Description |
+| ------- | ----------- |
+| `ably.room.my-chat-room` | Applies to the `my-chat-room` room only. |
+| `ably.room.support:*` | Applies to all rooms in the `support` namespace. |
+| `ably.room.*` | Applies to all rooms. |
+
+When multiple patterns match a room, the most specific claim is used.
+
+#### Read user claims from events 
+
+The `userClaim` field is available on messages, presence members, typing events, room reactions, and message reactions. For example, to read the claim from a message:
+
+<Code>
+
+##### Javascript
+
+```
+room.messages.subscribe((event) => {
+  const { userClaim } = event.message;
+  if (userClaim) {
+    const parsed = JSON.parse(userClaim);
+    console.log(`Message from ${parsed.display_name} (${parsed.role})`);
+  }
+});
+```
+
+##### React
+
+```
+import { useMessages } from '@ably/chat/react';
+
+const MyComponent = () => {
+  useMessages({
+    listener: (event) => {
+      const { userClaim } = event.message;
+      if (userClaim) {
+        const parsed = JSON.parse(userClaim);
+        console.log(`Message from ${parsed.display_name} (${parsed.role})`);
+      }
+    },
+  });
+
+  return <div>...</div>;
+};
+```
+</Code>
+
+<Aside data-type='note'>
+The `userClaim` value is always a string. If you encode a JSON object in the claim, you must parse it on the client. The value is only present if the publishing user's token contained a matching claim for the room.
+</Aside>
+
+</If>
+
+## Install 
+
+The Chat SDK is built on top of the Ably Pub/Sub SDK and uses that to establish a connection with Ably.
+
+<If lang="javascript,react">
+### NPM 
+
+Install the Pub/Sub SDK and the Chat SDK:
+
+<Code>
+
+#### Shell
+
+```
+npm install ably @ably/chat
+```
+</Code>
+
+Import the SDKs into your project:
+
+<Code>
+
+#### Javascript
+
+```
+import * as Ably from 'ably';
+import { ChatClient } from '@ably/chat';
+```
+
+#### React
+
+```
+import * as Ably from 'ably';
+import { ChatClient } from '@ably/chat';
+import { ChatClientProvider } from '@ably/chat/react';
+```
+</Code>
+</If>
+
+<If lang="javascript">
+### CDN 
+
+Reference the Pub/Sub SDK and the Chat SDK within your HTML file:
+
+<Code>
+
+#### Javascript
+
+```
+<script src="https://cdn.ably.com/lib/ably.min-2.js"></script>
+<script src="https://cdn.ably.com/lib/ably-chat.umd.cjs-0.js"></script>
+<script>
+  // Client-side: Use token authentication (recommended)
+  const realtime = new Ably.Realtime({
+    authCallback: async (tokenParams, callback) => {
+      try {
+        const response = await fetch('/api/ably-token');
+        const token = await response.text();
+        callback(null, token);
+      } catch (error) {
+        callback(error, null);
+      }
+    },
+  });
+  const chatClient = new AblyChat.ChatClient(realtime);
+</script>
+```
+</Code>
+</If>
+
+<If lang="swift">
+### Swift Package Manager 
+
+The SDK is distributed as a Swift Package and can be installed using Xcode or by adding it as a dependency in your package's `Package.swift`.
+
+To install the `ably-chat-swift` package in your Xcode Project:
+  * Paste `https://github.com/ably/ably-chat-swift` in the Swift Packages search box (Xcode project → Swift Packages.. . → `+` button).
+  * Select the Ably Chat SDK for your target.
+
+To install the `ably-chat-swift` package in another Swift Package, add the following to your `Package.swift`:
+
+<Code>
+
+#### Swift
+
+```
+.package(url: "https://github.com/ably/ably-chat-swift", from: "1.0.0"),
+```
+</Code>
+
+Import the SDK:
+
+<Code>
+
+#### Swift
+
+```
+import AblyChat
+```
+</Code>
+</If>
+
+<If lang="kotlin,android">
+### Gradle 
+
+The Ably Chat SDK is available on the Maven Central Repository. To include the dependency in your project, add the following to your `build.gradle.kts` file:
+
+<Code>
+
+#### Kotlin
+
+```
+  implementation("com.ably.chat:chat:1.2.0")
+```
+
+#### Android
+
+```
+implementation("com.ably.chat:chat:1.2.0")
+implementation("com.ably.chat:chat-extensions-compose:1.2.0")
+```
+</Code>
+
+For groovy:
+
+<Code>
+
+#### Kotlin
+
+```
+  implementation 'com.ably.chat:chat:1.2.0'
+```
+
+#### Android
+
+```
+implementation 'com.ably.chat:chat:1.2.0'
+implementation 'com.ably.chat:chat-extensions-compose:1.2.0'
+```
+</Code>
+</If>
+
+## Instantiate a client 
+
+Authentication is configured on the Ably Pub/Sub client, which the Chat client wraps. The Chat SDK itself doesn't handle authentication directly - it uses the authenticated connection from the underlying Pub/Sub client.
+
+Instantiate a realtime client using the Pub/Sub SDK and pass the generated client into the Chat constructor. <If lang="react">**It is strongly recommended that you initialise the clients outside of the React component tree** to avoid creating unnecessary additional connections to Ably caused by re-renders.</If>
+
+<If lang="react">
+Pass the `ChatClient` into the [`ChatClientProvider`](https://sdk.ably.com/builds/ably/ably-chat-js/main/typedoc/functions/chat-react.ChatClientProvider.html). The `ChatClient` instance will be available to all child components in your React component tree.
+</If>
+
+### Client-side authentication (recommended) 
+
+Use token authentication for browsers and mobile apps. Your auth server endpoint validates the user and returns an Ably token with the appropriate `clientId`:
+
+<Code>
+
+#### Javascript
+
+```
+// Client-side: Token authentication (recommended for browsers)
+import { LogLevel } from '@ably/chat'
+
+const realtimeClient = new Ably.Realtime({
+  authCallback: async (tokenParams, callback) => {
+    try {
+      const response = await fetch('/api/ably-token');
+      const token = await response.text();
+      callback(null, token);
+    } catch (error) {
+      callback(error, null);
+    }
+  },
+});
+const chatClient = new ChatClient(realtimeClient, { logLevel: LogLevel.Error });
+```
+
+#### React
+
+```
+// Client-side: Token authentication (recommended for React apps)
+import { LogLevel } from '@ably/chat'
+
+const realtimeClient = new Ably.Realtime({
+  authCallback: async (tokenParams, callback) => {
+    try {
+      const response = await fetch('/api/ably-token');
+      const token = await response.text();
+      callback(null, token);
+    } catch (error) {
+      callback(error, null);
+    }
+  },
+});
+const chatClient = new ChatClient(realtimeClient, { logLevel: LogLevel.Error });
+
+const App = () => {
+  return (
+    <ChatClientProvider client={chatClient}>
+      <RestOfYourApp />
+    </ChatClientProvider>
+  );
+};
+```
+
+#### Swift
+
+```
+// Client-side: Token authentication (recommended for iOS apps)
+let realtimeOptions = ARTClientOptions()
+realtimeOptions.authCallback = { tokenParams, callback in
+    // Fetch token from your auth server
+    fetchAblyToken { result in
+        switch result {
+        case .success(let tokenRequest):
+            callback(tokenRequest, nil)
+        case .failure(let error):
+            callback(nil, error)
+        }
+    }
+}
+let realtime = ARTRealtime(options: realtimeOptions)
+let chatClient = ChatClient(realtime: realtime)
+```
+
+#### Kotlin
+
+```
+// Client-side: Token authentication (recommended for Android apps)
+import com.ably.chat.ChatClient
+import io.ably.lib.realtime.AblyRealtime
+import io.ably.lib.types.ClientOptions
+
+val realtimeClient = AblyRealtime(
+    ClientOptions().apply {
+        authCallback = { tokenParams, callback ->
+            // Fetch token from your auth server
+            fetchAblyToken { result ->
+                result.onSuccess { tokenRequest ->
+                    callback.onSuccess(tokenRequest)
+                }
+                result.onFailure { error ->
+                    callback.onError(ErrorInfo(error.message, 40000, 401))
+                }
+            }
+        }
+    },
+)
+
+val chatClient = ChatClient(realtimeClient)
+```
+
+#### Android
+
+```
+import com.ably.chat.ChatClient
+import io.ably.lib.realtime.AblyRealtime
+import io.ably.lib.types.ClientOptions
+
+val realtimeClient = AblyRealtime(
+    ClientOptions().apply {
+        key = "your-api-key"
+        clientId = "<clientId>"
+    },
+)
+
+val chatClient = ChatClient(realtimeClient)
+```
+</Code>
+
+Your auth server endpoint (`/api/ably-token`) should authenticate the user and return a token. See the [token authentication](https://ably.com/docs/auth/token.md) documentation for server implementation examples.
+
+### Server-side authentication 
+
+For server-side applications or local development, you can use an API key directly:
+
+<Code>
+
+#### Javascript
+
+```
+// Server-side only: API key authentication
+// WARNING: Never use this in client-side code (browsers, mobile apps)
+import { LogLevel } from '@ably/chat'
+
+const realtimeClient = new Ably.Realtime({
+  key: process.env.ABLY_API_KEY,
+  clientId: 'server-process-1',
+});
+const chatClient = new ChatClient(realtimeClient, { logLevel: LogLevel.Error });
+```
+</Code>
+
+<Aside data-type='important'>
+API key authentication should only be used server-side. For client-side apps (React, iOS, Android), always use [token authentication](#client-side-auth) instead.
+</Aside>
+
+A [`ClientOptions`](https://ably.com/docs/api/realtime-sdk.md#client-options) object may be passed to the Pub/Sub SDK instance to further customize the connection. When using token authentication, the `clientId` is set by your auth server. When using API key authentication server-side, you must provide a `clientId` to ensure that the client is [identified](https://ably.com/docs/auth/identified-clients.md).
+
+### Using Ably JWT (alternative) 
+
+If you have existing JWT-based authentication infrastructure (Auth0, Firebase, Cognito, or custom), you can create Ably JWTs directly without using the Ably SDK on your server:
+
+#### Server (no Ably SDK required)
+
+<Code>
+
+##### Javascript
+
+```
+import jwt from 'jsonwebtoken';
+
+const [keyName, keySecret] = process.env.ABLY_API_KEY.split(':');
+
+app.get('/api/ably-jwt', async (req, res) => {
+  // Your existing auth middleware validates the user
+  const userId = req.user.id;
+
+  const ablyJwt = jwt.sign(
+    {
+      'x-ably-capability': JSON.stringify({
+        '*': ['publish', 'subscribe', 'presence', 'history'],
+      }),
+      'x-ably-clientId': userId,
+    },
+    keySecret,
+    { algorithm: 'HS256', keyid: keyName, expiresIn: '1h' }
+  );
+
+  res.send(ablyJwt);
+});
+```
+</Code>
+
+#### Client
+
+<Code>
+
+##### Javascript
+
+```
+const realtimeClient = new Ably.Realtime({
+  authCallback: async (tokenParams, callback) => {
+    try {
+      const response = await fetch('/api/ably-jwt');
+      const jwt = await response.text();
+      callback(null, jwt);
+    } catch (error) {
+      callback(error, null);
+    }
+  },
+});
+const chatClient = new ChatClient(realtimeClient);
+```
+
+##### Swift
+
+```
+let realtimeOptions = ARTClientOptions()
+realtimeOptions.authCallback = { tokenParams, callback in
+    fetchAblyJwt { result in
+        switch result {
+        case .success(let jwt):
+            callback(jwt as ARTTokenDetailsCompatible, nil)
+        case .failure(let error):
+            callback(nil, error)
+        }
+    }
+}
+let realtime = ARTRealtime(options: realtimeOptions)
+let chatClient = ChatClient(realtime: realtime)
+```
+
+##### Kotlin
+
+```
+val realtimeClient = AblyRealtime(
+    ClientOptions().apply {
+        authCallback = Auth.TokenCallback { _ ->
+            // Fetch JWT from your server
+            fetchAblyJwt()
+        }
+    }
+)
+val chatClient = ChatClient(realtimeClient)
+```
+</Code>
+
+**Why choose JWT for Chat?**
+- No Ably SDK required on your server
+- Integrates with existing Auth0/Firebase/Cognito flows
+- Supports [channel-scoped claims](https://ably.com/docs/auth/capabilities.md#custom-restrictions) for user roles in chat rooms
+- Eliminates client round-trip to Ably
+
+See [Token authentication](https://ably.com/docs/auth/token.md#choosing) for detailed guidance on when to use JWT vs Ably Tokens.
+
+Additional options can also be passed to the Chat client to customize the following properties:
+
+<If lang="javascript,react">
+
+| Property | Description |
+| -------- | ----------- |
+| `logHandler` | The function to call for each line of [log output](#logging). The default is `console.log`. |
+| `logLevel` | The verbosity of the [log output](#logging). Options are; `trace`, `debug`, `info`, `warn`, `error` or `silent`. The default is `error`. |
+
+</If>
+
+<If lang="swift">
+
+| Property | Description |
+| -------- | ----------- |
+| `logHandler` | This is your own custom log handler conforming to the `LogHandler` protocol. A single `log` function is called for each line of [log output](#logging). The default implementation uses Swift's `Logger`. |
+| `logLevel` | The verbosity of the [log output](#logging). Options are; `.trace`, `.debug`, `.info`, `.warn`, `.error` or `.silent`. The default is `.error`. |
+
+</If>
+
+<If lang="kotlin,android">
+
+| Property | Description |
+| -------- | ----------- |
+| logHandler | This is your own custom log handler conforming to the `LogHandler` interface. A single `log` function is called for each line of [log output](#logging). The default implementation uses Android's `Log`. |
+| logLevel | The verbosity of the [log output](#logging). Options are; `Trace`, `Debug`, `Info`, `Warn`, `Error` or `Silent`. The default is `Error`. |
+
+</If>
+
+## Logging 
+
+Set the `logHandler` and `logLevel` properties when [instantiating a client](#instantiate) to configure your log handler:
+
+<Code>
+
+### Javascript
+
+```
+// Using token authentication (recommended for client-side)
+const ably = new Ably.Realtime({
+  authCallback: async (tokenParams, callback) => {
+    const response = await fetch('/api/ably-token');
+    callback(null, await response.text());
+  },
+});
+const chatClient = new ChatClient(ably, {logHandler: logWriteFunc, logLevel: 'debug' });
+```
+
+### React
+
+```
+import * as Ably from 'ably';
+import { LogLevel } from '@ably/chat';
+import { ChatClientProvider } from '@ably/chat/react';
+
+// Using token authentication (recommended for React apps)
+const ably = new Ably.Realtime({
+  authCallback: async (tokenParams, callback) => {
+    const response = await fetch('/api/ably-token');
+    callback(null, await response.text());
+  },
+});
+const chatClient = new ChatClient(ably, {logHandler: logWriteFunc, logLevel: 'debug' });
+
+const App = () => {
+  return (
+    <ChatClientProvider client={chatClient}>
+      <RestOfYourApp />
+    </ChatClientProvider>
+  );
+};
+```
+
+### Swift
+
+```
+let realtimeOptions = ARTClientOptions()
+// Using token authentication (recommended for iOS apps)
+realtimeOptions.authCallback = { tokenParams, callback in
+    fetchAblyToken { result in
+        switch result {
+        case .success(let tokenRequest): callback(tokenRequest, nil)
+        case .failure(let error): callback(nil, error)
+        }
+    }
+}
+let realtime = ARTRealtime(options: realtimeOptions)
+let clientOptions = ChatClientOptions(logHandler: SomeLogHandler(), logLevel: .debug)
+return ChatClient(realtime: realtime, clientOptions: clientOptions)
+```
+
+### Kotlin
+
+```
+// Using token authentication (recommended for Android apps)
+val realtimeClient = AblyRealtime(
+    ClientOptions().apply {
+        authCallback = { tokenParams, callback ->
+            fetchAblyToken { result ->
+                result.onSuccess { callback.onSuccess(it) }
+                result.onFailure { callback.onError(ErrorInfo(it.message, 40000, 401)) }
+            }
+        }
+    },
+)
+val chatClient = ChatClient(realtimeClient) {
+  logHandler = CustomLogHandler() // Implements com.ably.chat.LogHandler interface
+  logLevel = LogLevel.Debug
+}
+```
+
+### Android
+
+```
+val realtimeClient = AblyRealtime(
+    ClientOptions().apply {
+        key = "your-api-key"
+        clientId = "<clientId>"
+    },
+)
+val chatClient = ChatClient(realtimeClient) {
+    logHandler = CustomLogHandler() // Implements com.ably.chat.LogHandler interface
+    logLevel = LogLevel.Debug
+}
+```
+</Code>
+
+<If lang="javascript,react">
+The `logHandler` property is your own function that will be called for each line of log output generated by the Chat SDK.
+</If>
+
+<If lang="swift,kotlin,android">
+The `logHandler` property is your custom `LogHandler` implementation that will be called for each line of log output generated by the Chat SDK.
+</If>
+
+The `logLevel` sets the verbosity of logs that will be output by the SDK. The following log levels are available to set:
+
+| Level | Description |
+| ----- | ----------- |
+| `trace` | Something routine and expected has occurred. This level will provide logs for the vast majority of operations and function calls. |
+| `debug` | Development information, messages that are useful when trying to debug library behavior, but superfluous to normal operation. |
+| `info` | Informational messages. Operationally significant to the library but not out of the ordinary. |
+| `warn` | Anything that is not immediately an error, but could cause unexpected behavior in the future. For example, passing an invalid value to an option. Indicates that some action should be taken to prevent future errors. |
+| `error` | A given operation has failed and cannot be automatically recovered. The error may threaten the continuity of operation. |
+| `silent` | No logging will be performed. |
+
+## Related Topics
+
+- [Authentication](https://ably.com/docs/chat/authentication.md): Configure authentication for Chat applications with the required capabilities.
+- [Connections](https://ably.com/docs/chat/connect.md): Manage the realtime connections to Ably.
+- [Rooms](https://ably.com/docs/chat/rooms.md): Use rooms to organize your users and chat messages.
+- [Integrations](https://ably.com/docs/chat/integrations.md): Ably Chat integrations with external services.
+
+## Documentation Index
+
+To discover additional Ably documentation:
+
+1. Fetch [llms.txt](https://ably.com/llms.txt) for the canonical list of available pages.
+2. Identify relevant URLs from that index.
+3. Fetch target pages as needed.
+
+Avoid using assumed or outdated documentation paths.

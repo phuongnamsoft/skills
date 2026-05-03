@@ -1,0 +1,386 @@
+# Message batching
+
+Ably offers two different types of batching that have distinct use cases:
+
+Server-side batching groups published messages into batches before sending them to subscribers. It is primarily intended for high-throughput scenarios where a large number of messages are being published to a channel in a short period of time. Each batch received by subscribers counts as a single message in terms of billing which can greatly reduce message costs in high-throughput scenarios.
+
+Batch publishing enables clients to publish messages to multiple channels using a single request. It enables the same information to be easily distributed to multiple channels, or different information distributed to many channels, all using a single request. A similar feature is available to retrieve the [presence status of multiple channels](https://ably.com/docs/presence-occupancy/presence.md#batch) using a single request.
+
+## Server-side batching 
+
+With server-side batching, Ably groups any messages published within a set period of time into batches, before sending them to subscribers.
+
+It makes messages more cost efficient in high-throughput scenarios by reducing the number of messages being published, as each batch is counted as a single message. This also helps to mitigate the risk of hitting message rate limits at the same time. The interval over which batching occurs is configurable to ensure an appropriate trade off between cost efficiency and user experience, as a higher interval will increase the latency between message deliveries.
+
+Server-side batching is effective in applications such as fan engagement platforms, where key moments in a game, such as points being scored, cause huge surges in the number of reactions and messages. It also enables a much higher number of users to be [present](https://ably.com/docs/presence-occupancy/presence.md) on a channel when it is enabled.
+
+<Aside data-type="important">
+Be aware that server-side batching doesn't support [idempotency](https://ably.com/docs/pub-sub/advanced.md#idempotency) due to how messages are grouped on the server. However, if you are explicitly setting a message ID, then these messages will be excluded from being batched.
+</Aside>
+
+### Configure server-side batching 
+
+When configuring server-side batching, you need to configure a batching interval. This is the interval over which messages are batched into groups, in milliseconds. Messages sent to Ably during this interval are temporarily held and aggregated. Once the interval elapses, the collected messages are combined into a single batch and delivered to subscribers as one message.
+
+Each batch can contain up to 200 messages by count or total data size. For example, if you have 210 messages, they will be split into two batches: one with 200 messages and another with 10 messages. If the combined data size of 200 messages exceeds the data limit, the excess will be allocated to a new batch as separate messages.
+
+Use one of the following methods to configure server-side batching for a channel or channel namespace:
+
+<Tabs>
+<Tab value="dashboard" label="Dashboard">
+
+In your app [settings](https://ably.com/accounts/any/apps/any/settings):
+
+1. Click **Add new rule**.
+2. Enter the channel name or namespace to apply server-side batching to.
+3. Check **Server-side batching enabled**.
+4. Choose a batching interval over which to aggregate messages.
+5. Click **Create rule** to save.
+
+</Tab>
+<Tab value="control-api" label="Control API">
+
+Create a rule with server-side batching using the Control API by sending a `POST` request to [`/apps/{app_id}/namespaces`](https://ably.com/docs/api/control-api.md):
+
+<Code>
+
+#### Shell
+
+```
+curl -X POST https://control.ably.net/v1/apps/{APP_ID}/namespaces \
+  -H "Authorization: Bearer {ACCESS_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "my-namespace",
+    "batchingEnabled": true,
+    "batchingInterval": 100
+  }'
+```
+</Code>
+
+</Tab>
+<Tab value="cli" label="Ably CLI">
+
+Use the [Ably CLI](https://ably.com/docs/platform/tools/cli.md) to create a rule with server-side batching:
+
+<Code>
+
+#### Shell
+
+```
+ably apps rules create \
+  --name "my-namespace" \
+  --batching-enabled \
+  --batching-interval 100
+```
+</Code>
+
+Run `ably apps rules create --help` for a full list of available options.
+
+</Tab>
+</Tabs>
+
+<Aside data-type="note">
+Server side batching is mutually exclusive with [message conflation](https://ably.com/docs/messages.md#conflation) on a channel, or channel namespace.
+</Aside>
+
+## Batch publish 
+
+It is possible to publish messages to multiple channels with a single request. A batch request queries an API multiple times with single HTTP request. A batch request has a single set of request details containing the request body, parameters and headers. These are converted into an array of requests to the underlying API. Each individual request to the underlying API is performed in parallel and may succeed or fail independently.
+
+The following is an example of a batch publish request (using the [`batchPublish()`](https://ably.com/docs/api/rest-sdk.md#batchPublish) method on SDKs that support it and the [`request()`](https://ably.com/docs/api/rest-sdk.md#request) method on others):
+
+<Code>
+
+### Rest Javascript
+
+```
+const rest = new Ably.Rest({ key: 'your-api-key' });
+
+const batchResult = await rest.batchPublish({
+  channels: ['test1', 'test2'],
+  messages: [{ data: 'myData' }]
+});
+
+console.log('Success count:', batchResult.successCount);
+console.log('Failure count:', batchResult.failureCount);
+console.log('Detailed results:', batchResult.results);
+```
+
+### Rest Java
+
+```
+ClientOptions options = new ClientOptions("your-api-key");
+AblyRest rest = new AblyRest(options);
+
+Message message = new Message("event", "myData");
+Message.Batch batch = new Message.Batch(
+    new String[]{"test1", "test2"},
+    new Message[]{message}
+);
+
+PublishResponse[] results = rest.publishBatch(new Message.Batch[]{batch}, null);
+
+for (PublishResponse response : results) {
+    if (response.error == null) {
+        System.out.println("Published to " + response.channelId);
+    } else {
+        System.out.println("Failed on " + response.channelId + ": " + response.error.message);
+    }
+}
+```
+
+### Rest Python
+
+```
+ably_rest = AblyRest(key='your-api-key')
+
+content = {
+    "channels": ["test1", "test2"],
+    "messages": {
+        "data": 'myData'
+    }
+}
+
+response = await ably_rest.request('POST', '/messages', '3', body=content)
+
+if response.success:
+    print('Success! status code was', response.status_code)
+else:
+    print('An error occurred; err =', response.error_message)
+```
+
+### Rest Php
+
+```
+$rest = new Ably\AblyRest(
+    ['key' => 'your-api-key']
+);
+$content = ['channels' => ['test1', 'test2'], 'messages' => ['data' => 'myData']];
+$batchPublish = $rest->request('POST', '/messages', [], $content);
+
+echo('Success! status code was ' . $batchPublish->statusCode);
+```
+
+### Rest Go
+
+```
+rest, err := ably.NewREST(
+  ably.WithKey("your-api-key"),
+)
+if err != nil {
+  log.Fatalf("Error creating Ably client: %v", err)
+}
+
+type Message struct {
+  Data string `json:"data"`
+}
+
+type Content struct {
+  Channels []string `json:"channels"`
+  Messages Message  `json:"messages"`
+}
+
+// Create an instance of the Content structure
+content := Content{
+  Channels: []string{"test1", "test2"},
+  Messages: Message{
+    Data: "myData",
+  },
+}
+
+response, err := rest.Request(
+  "POST",
+  "/messages",
+  3,
+  ably.RequestWithBody(content)).Pages(context.Background())
+
+if err != nil {
+  log.Fatalf("An error occurred; err = %v", err)
+}
+log.Printf("Success! status code was = %v", response.StatusCode())
+```
+</Code>
+
+### Batch requests 
+
+Each batch publish request can contain a single `BatchSpec` object, or an array of `BatchSpec` objects. Each `BatchSpec` object contains a single channel name or an array of channel names in the `channels` property. The `messages` property then contains a single message or an array of up to 1000 messages. Each `BatchSpec` will then publish each of its messages to each of its channels.
+
+For each channel, the messages grouped into a single `BatchSpec` are published atomically. This means that:
+
+* Either they will all be successfully published or none of them will
+* The [max message size](https://ably.com/docs/platform/pricing/limits.md#message) limit applies to the total size of all messages in in a `BatchSpec`
+* Each `BatchSpec` will only count as a single message for the purpose of the [per-channel rate limit](https://ably.com/docs/platform/pricing/limits.md#message)
+
+So if you do not need the atomicity guarantee and might be in danger of exceeding the max message size limit, you can put each message into its own `BatchSpec` (relative ordering will still be preserved). Conversely, if you are publishing many hundreds of small messages and are in danger of exceeding the max per-channel message rate, you group them into a fewer `BatchSpecs`.
+
+The batch request as a whole is subject to the following limits:
+
+* Each request can only include 100 different channels. If the same channel name appears in multiple `BatchSpec` objects within a single request, it only counts as one channel towards the 100 channel limit per batch request.
+* Each request has a maximum body size of 2MiB.
+
+The following is an example of a single `BatchSpec` object publishing a single message to 2 channels:
+
+<Code>
+
+#### Text
+
+```
+{
+  channels: ['channel1', 'channel2'],
+  messages: {data: 'My message contents'}
+}
+```
+</Code>
+
+The following is an example of an array of `BatchSpec` objects. The first publishes a single message to two channels and the second publishes two messages to a single channel:
+
+<Code>
+
+#### Text
+
+```
+[
+  {
+    channels: ['channel1', 'channel2'],
+    messages: {data: 'My message contents'}
+  },
+  {
+    channels: 'channel3',
+    messages: [
+      {data: 'My message contents'},
+      {name: 'an event', data: 'My event message contents'},
+    ]
+  }
+]
+```
+</Code>
+
+The following is an example curl request, querying the [REST API](https://ably.com/docs/api/rest-api.md#batch-publish) directly:
+
+<Code>
+
+#### Shell
+
+```
+curl -X POST https://main.realtime.ably.net/messages \
+    -u "your-api-key" \
+    -H "Content-Type: application/json" \
+    --data '{ "channels": [ "test1", "test2"],
+"messages": {"data": "My test message text" } }'
+```
+</Code>
+
+### Batch responses 
+
+Once all requests have been completed in a batch request, a batch response is returned with three possible outcomes:
+
+- **Success** - If all of the individual requests were successful then an array containing the response of each query is returned in request order.
+- **Failure** - If the batch request itself failed before the individual requests were made, then an error response is returned with a status code and error response body. Examples of why the batch request can fail include an authorization failure or an invalid request.
+- **Partial success** - If one or more of the individual requests failed the response body contains an error object with the error code `40020` and a status code of `400`. The error body contains a `batchResponse` array of each individual response in request order. The `batchResponse` can be inspected if there is a need to know the details of each outcome. If you only need to know whether or not the batch request was completely successful then the status code is sufficient.
+
+The examples for each possible outcome will use the following `BatchSpec` object as the request data:
+
+<Code>
+
+#### Text
+
+```
+{
+  channels: ['channel0', 'channel1', 'channel2'],
+  messages: {data: 'My test message text'}
+}
+```
+</Code>
+
+The following is an example of a successful batch publish response. The response body contains the `messageId` of each published message and the `channel` it was published to. The status code is `201`:
+
+<Code>
+
+#### Json
+
+```
+[
+  {
+    "channel":"channel0",
+    "messageId":"w234r5t-fr5"
+  },
+  {
+    "channel":"channel1",
+    "messageId":"vde4sfc0p"
+  },
+  {
+    "channel":"channel2",
+    "messageId":"nh3exv8ih"
+  }
+]
+```
+</Code>
+
+The following is an example of a batch publish failure response. The response body contains the details of the `error`, in this example that the token used for the request has expired. The status code is `401`:
+
+<Code>
+
+#### Json
+
+```
+{
+  "error": {
+    "message":"Token expired",
+    "statusCode":401,
+    "code":40140
+  }
+}
+```
+</Code>
+
+The following is an example of a batch publish partial success response. The successful requests contain the `messageId` of each published message and the `channel` they were published to. The failed request contains the `channel` the request failed for and the details of the `error`, in this example that the credentials used didn't have the capability to publish to that channel. The status code for a partial success is always `400`:
+
+<Code>
+
+#### Json
+
+```
+{
+  "error": {
+    "message": "Batched response includes errors",
+    "statusCode":400,
+    "code":40020
+  }
+  "batchResponse": [
+    {
+      "channel":"channel0",
+      "messageId":"w234r5t-fr5"
+    },
+    {
+      "channel":"channel1",
+      "messageId":"vde4sfc0p"
+    },
+    {
+      "channel":"channel2",
+      "error": {
+        "message": "Given credentials do not have the required capability",
+        "statusCode": 401,
+        "code": 40160
+      }
+    }
+  ]
+}
+```
+</Code>
+
+## Related Topics
+
+- [Message concepts](https://ably.com/docs/messages.md): Messages contain data and are sent and received through channels.
+- [Message annotations](https://ably.com/docs/messages/annotations.md): Annotate messages on a channel with additional metadata.
+- [Updates, deletes and appends](https://ably.com/docs/messages/updates-deletes.md): Update and delete messages published to a channel, and retrieve message version history.
+
+## Documentation Index
+
+To discover additional Ably documentation:
+
+1. Fetch [llms.txt](https://ably.com/llms.txt) for the canonical list of available pages.
+2. Identify relevant URLs from that index.
+3. Fetch target pages as needed.
+
+Avoid using assumed or outdated documentation paths.

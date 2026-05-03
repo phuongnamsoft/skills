@@ -1,0 +1,323 @@
+# Getting started: Pub/Sub in Swift
+
+This guide will get you started with Ably Pub/Sub in a new Swift application built with Vite.
+
+You'll establish a realtime connection to Ably and learn to publish and subscribe to messages. You'll also implement presence to track other online clients, and learn how to retrieve message history.
+
+<Aside data-type='note'>
+Using an AI coding assistant? [Teach it Ably](https://ably.com/docs/platform/ai-llms.md#agent-skills) with Agent Skills for all popular AI coding agents. Run `claude plugin add ably/agent-skills` or `npx skills add ably/agent-skills` to get started.
+</Aside>
+
+## Prerequisites 
+
+1. [Sign up](https://ably.com/signup) for an Ably account.
+2. Create a [new app](https://ably.com/accounts/any/apps/new), and create your first API key in the **API Keys** tab of the dashboard.
+3. Your API key will need the `publish`, `subscribe`, `presence` and `history` capabilities.
+4. Install [Xcode](https://developer.apple.com/xcode/).
+
+### Create a Swift project with Xcode 
+
+To follow this guide in Xcode, use a new iOS project with the SwiftUI App template. All code can be added directly to your `ContentView.swift` file, inside the `ContentView` struct. Use the `.onAppear` modifier to run the Ably code when the view appears. No additional files or setup are needed. All `print` output will appear in Xcode's debug console (View > Debug Area > Activate Console, or press Cmd+Shift+C).
+
+Install the Ably SDK in your Swift project using Swift Package Manager:
+
+<Code>
+
+#### Swift
+
+```
+dependencies: [
+    .package(url: "https://github.com/ably/ably-cocoa", from: "1.2.20")
+]
+```
+</Code>
+
+### (Optional) Install Ably CLI 
+
+Use the [Ably CLI](https://github.com/ably/cli) as an additional client to quickly test Pub/Sub features. It can simulate other clients by publishing messages, subscribing to channels, and managing presence states.
+
+1. Install the Ably CLI:
+
+<Code>
+
+#### Shell
+
+```
+npm install -g @ably/cli
+```
+</Code>
+
+2. Run the following to log in to your Ably account and set the default app and API key:
+
+<Code>
+
+#### Shell
+
+```
+ably login
+```
+</Code>
+
+<If loggedIn={false}>
+  <Aside data-type='note'>
+  The code examples in this guide include a demo API key. If you wish to interact with the Ably CLI and view outputs within your Ably account, ensure that you replace them with your own API key.
+  </Aside>
+</If>
+
+## Step 1: Connect to Ably 
+
+Clients establish a connection with Ably when they instantiate an SDK. This enables them to send and receive messages in realtime across channels.
+
+Open up the [dev console](https://ably.com/accounts/any/apps/any/console) of your first app before instantiating your client so that you can see what happens.
+
+Add the Ably import to the top of your `ContentView` file:
+
+<Code>
+
+### Swift
+
+```
+import Ably
+```
+</Code>
+
+Create an instance of `ARTRealtime` with your API key and provide a `clientId`. While using an API key is fine for the purposes of this guide, you should use [token authentication](https://ably.com/docs/auth/token.md) in production environments. A [`clientId`](https://ably.com/docs/auth/identified-clients.md) ensures the client is identified, which is required to use certain features, such as presence.
+
+This `ARTRealtime` instance is the main entry point for the realtime library. The `ARTRealtime` client connects to Ably as soon as it's instantiated, using a basic transport such as a raw TCP socket or a WebSocket:
+
+<Code>
+
+### Swift
+
+```
+let clientOptions = ARTClientOptions(key: "your-api-key")
+clientOptions.clientId = "my-first-client"
+let realtime = ARTRealtime(options: clientOptions)
+
+realtime.connection.on { stateChange in
+    print("Connection state changed to: \(stateChange.current)")
+
+
+    if stateChange.current == .connected {
+        print("Made my first connection!")
+    }
+}
+```
+</Code>
+
+You can monitor the lifecycle of clients’ connections, but for now just log a message to the console to know that the connection attempt was successful. You’ll see the message printed to your console, and you can also inspect the connection event in the dev console of your app.
+
+**To run:**
+- Build and run the app in Xcode (Cmd+R).
+- Watch the Xcode debug console for connection state changes and messages.
+
+## Step 2: Subscribe to a channel and publish a message 
+
+Messages contain the data that a client is communicating, such as a short 'hello' from a colleague, or a financial update being broadcast to subscribers from a server. Ably uses channels to separate messages into different topics, so that clients only ever receive messages on the channels they are subscribed to.
+
+Add the following lines to your `.onAppear{}` function to create a channel instance and register a listener to subscribe to the channel. Then run the app again:
+
+<Code>
+
+### Swift
+
+```
+let channel = realtime?.channels.get("my-first-channel")
+
+channel?.subscribe { message in
+    print("Received message: \(message.data ?? "no data")")
+}
+```
+</Code>
+
+Use the Ably CLI to publish a message to your channel. The message will be received by the client you've subscribed to the channel, and be logged to the console:
+
+<Code>
+
+### Shell
+
+```
+ably channels publish my-first-channel 'Hello!'
+```
+</Code>
+
+In a new terminal tab, subscribe to the same channel using the CLI:
+
+<Code>
+
+### Shell
+
+```
+ably channels subscribe my-first-channel
+```
+</Code>
+
+Now you can publish a message from your Swift code to the channel:
+
+<Code>
+
+### Swift
+
+```
+channel?.publish("greeting", data: "Hello from Swift!") { error in
+    guard error == nil else {
+        print("Error publishing message: \(error!.message)")
+        return
+    }
+    print("Message successfully published")
+}
+```
+</Code>
+
+When you publish this message, it will be received by both your Swift client and the CLI subscription.
+
+**To run:**
+- Build and run the app again.
+- Use the Ably CLI as described to publish/subscribe and see output in the Xcode debug console.
+
+## Step 3: Join the presence set 
+
+Presence enables clients to be aware of one another if they are present on the same channel. You can then show clients who else is online, provide a custom status update for each, and notify the channel when someone goes offline.
+
+Add the following code to subscribe to presence events, which lets you know when clients enter, update, and leave the presence set for this channel:
+
+<Code>
+
+### Swift
+
+```
+channel?.presence.subscribe { presenceMessage in
+    print("Presence event: \(presenceMessage.action) - Client: \(presenceMessage.clientId ?? "no client id") - \(presenceMessage.data ?? "no data")")
+}
+
+channel?.presence.enter("I'm here!") { error in
+    guard error == nil else {
+        print("Error entering presence set: \(error!.message)")
+        return
+    }
+    print("Successfully entered presence set")
+}
+```
+</Code>
+
+In the [dev console](https://ably.com/accounts/any/apps/any/console) of your first app, attach to `my-first-channel`. Enter a `clientId`, such as `my-dev-console`, and then join the presence set of the channel. You'll see that `my-first-client` is already present in the channel.
+
+You can have another client join the presence set using the Ably CLI:
+
+<Code>
+
+### Shell
+
+```
+ably channels presence enter my-first-channel --data '{"status":"learning about Ably!"}'
+```
+</Code>
+
+**To run:**
+- Build and run the app.
+- Use the Ably CLI or dev console to join presence and see events in the Xcode debug console.
+
+## Step 4: Retrieve message history 
+
+You can retrieve previously sent messages using the history feature. Ably stores all messages for 2 minutes by default in the event a client experiences network connectivity issues. You can [extend the storage period](https://ably.com/docs/storage-history/storage.md) of messages if required.
+
+If more than 2 minutes has passed since you published a regular message (excluding the presence events), then you can publish some more before trying out history. You can use the Ably CLI to do this.
+
+For example, using the Ably CLI to publish 5 messages:
+
+<Code>
+
+### Shell
+
+```
+ably channels publish --count 5 my-first-channel "Message number {{.Count}}"
+```
+</Code>
+
+Add the following code to retrieve any messages that were recently published to the channel:
+
+<Code>
+
+### Swift
+
+```
+let query = ARTRealtimeHistoryQuery()
+query.limit = 25 // Maximum number of messages to retrieve
+
+try channel?.history(query) { paginatedResult, error in
+    guard error == nil else {
+        print("Error retrieving message history: \(error!.message)")
+        return
+    }
+
+    guard let paginatedResult = paginatedResult else {
+        print("No results received")
+        return
+    }
+
+    print("Retrieved \(paginatedResult.items.count) messages from history")
+    for message in paginatedResult.items {
+        print("Message: \(message.data ?? "no data")")
+    }
+}
+```
+</Code>
+
+The output will look similar to the following:
+
+<Code>
+
+### Json
+
+```
+[
+  "Message number 5",
+  "Message number 4",
+  "Message number 3",
+  "Message number 2",
+  "Message number 1"
+]
+```
+</Code>
+
+**To run:**
+- Build and run the app.
+- Use the Ably CLI to publish messages if needed, then check the Xcode debug console for history output.
+
+## Next steps 
+
+Continue to explore the documentation with Swift as the selected language:
+
+* Understand [token authentication](https://ably.com/docs/auth/token.md) before going to production.
+* Understand how to effectively [manage connections](https://ably.com/docs/connect.md#close?lang=ruby).
+* Explore more [advanced](https://ably.com/docs/pub-sub/advanced.md) Pub/Sub concepts.
+
+You can also explore the [Ably CLI](https://www.npmjs.com/package/@ably/cli) further, or visit the Pub/Sub [API references](https://ably.com/docs/api/realtime-sdk.md).
+
+## Related Topics
+
+- [Overview](https://ably.com/docs/getting-started.md): Getting started with Ably Pub/Sub in your language or framework of choice. Learn how to publish, subscribe, track presence, fetch message history, and manage realtime connections.
+- [JavaScript](https://ably.com/docs/getting-started/javascript.md): Get started with Pub/Sub in vanilla JavaScript using Ably. Learn how to publish, subscribe, track presence, fetch message history, and manage realtime connections.
+- [Node.js](https://ably.com/docs/getting-started/node.md): Get started with Pub/Sub in JavaScript using Ably. Learn how to publish, subscribe, track presence, fetch message history, and manage realtime connections.
+- [React](https://ably.com/docs/getting-started/react.md): A getting started guide for Ably Pub/Sub React that steps through some of the key features using React and Vite.
+- [React Native](https://ably.com/docs/getting-started/react-native.md): A getting started guide for Ably Pub/Sub React Native that steps through some of the key features using React Native with Expo.
+- [Kotlin](https://ably.com/docs/getting-started/kotlin.md): Get started with Pub/Sub in Kotlin using Ably. Learn how to publish, subscribe, track presence, fetch message history, and manage realtime connections.
+- [Flutter](https://ably.com/docs/getting-started/flutter.md): A getting started guide for Ably Pub/Sub Flutter that steps through some of the key features using Flutter.
+- [Java](https://ably.com/docs/getting-started/java.md): A getting started guide for Ably Pub/Sub Java that steps through some of the key features using Java.
+- [Go](https://ably.com/docs/getting-started/go.md): Get started with Pub/Sub in Go using Ably. Learn how to publish, subscribe, track presence, fetch message history, and manage realtime connections.
+- [Python](https://ably.com/docs/getting-started/python.md): A getting started guide for Ably Pub/Sub Python that steps through some of the key features using Python.
+- [Ruby](https://ably.com/docs/getting-started/ruby.md): A getting started guide for Ably Pub/Sub Ruby that steps through some of the key features using Ruby.
+- [C# .NET](https://ably.com/docs/getting-started/dotnet.md): A getting started guide for Ably Pub/Sub C# .NET that steps through some of the key features using C# and .NET.
+- [Objective C](https://ably.com/docs/getting-started/objective-c.md): A getting started guide for Ably Pub/Sub Objective-C that steps through some of the key features using Objective-C.
+- [PHP](https://ably.com/docs/getting-started/php.md): A getting started guide for Ably Pub/Sub PHP that steps through some of the key features using PHP.
+- [Laravel](https://ably.com/docs/getting-started/laravel.md): A getting started guide for Ably Pub/Sub Laravel 12 that steps through some of the key features using Laravel.
+
+## Documentation Index
+
+To discover additional Ably documentation:
+
+1. Fetch [llms.txt](https://ably.com/llms.txt) for the canonical list of available pages.
+2. Identify relevant URLs from that index.
+3. Fetch target pages as needed.
+
+Avoid using assumed or outdated documentation paths.

@@ -1,0 +1,320 @@
+# Batch operations
+
+<If lang="javascript">
+  <Aside data-type='note'>
+  **Building with LiveObjects?** Help shape its future by [sharing your use case](https://44qpp.share.hsforms.com/2fZobHQA1ToyRfB9xqZYQmQ).
+  </Aside>
+</If>
+<If lang="swift">
+  <Aside data-type='experimental'>
+  LiveObjects Swift is currently Experimental. Its features are still in development and subject to rapid change.
+
+  **Building with LiveObjects?** Help shape its future by [sharing your use case](https://44qpp.share.hsforms.com/2fZobHQA1ToyRfB9xqZYQmQ).
+  </Aside>
+</If>
+<If lang="java">
+  <Aside data-type='experimental'>
+  LiveObjects Java is currently Experimental. Its features are still in development and subject to rapid change.
+
+  **Building with LiveObjects?** Help shape its future by [sharing your use case](https://44qpp.share.hsforms.com/2fZobHQA1ToyRfB9xqZYQmQ).
+  </Aside>
+</If>
+
+<Aside data-type="note">
+Batch operations are only currently only supported in LiveObjects JavaScript. Support for Swift and Java is coming soon.
+</Aside>
+
+Batch operations allow multiple updates to be grouped into a single channel message and applied atomically. It ensures that all operations in a batch either succeed together or are discarded entirely. Batching is essential when multiple related updates to channel objects must be applied as a single atomic unit, for example, when application logic depends on multiple objects being updated simultaneously. Batching ensures that all operations in the batch either succeed or fail together.
+
+<Aside data-type="note">
+Batch operations are different from ["Message batching"](https://ably.com/docs/messages/batch.md), which is a server-side feature of [Pub/Sub](https://ably.com/docs/basics.md).
+</Aside>
+
+## Create a batch context 
+
+To batch object operations together, use the `batch()` method on a [PathObject](https://ably.com/docs/liveobjects/concepts/path-object.md) or [Instance](https://ably.com/docs/liveobjects/concepts/instance.md). This method accepts a callback function that receives a batch context that allows you to construct operations. Ably publishes these operations together as a single channel message. If an error occurs publishing the batched operations, all operations are discarded, preventing partial updates and ensuring atomicity.
+
+Call `batch()` on a `PathObject` to group operations on that path:
+
+<Code>
+
+### Javascript
+
+```
+const myObject = await channel.object.get();
+
+// Batch multiple operations on the channel object
+await myObject.batch((ctx) => {
+  ctx.set('foo', 'bar');
+  ctx.set('baz', 42);
+  ctx.remove('oldKey');
+});
+
+// Batch operations on a nested path
+await myObject.get('settings').batch((ctx) => {
+  ctx.set('theme', 'dark');
+  ctx.set('fontSize', 14);
+  ctx.set('notifications', true);
+});
+
+// Batch operations on a counter
+await myObject.get('visits').batch((ctx) => {
+  ctx.increment(5);
+  ctx.increment(3);
+  ctx.decrement(2);
+});
+```
+</Code>
+
+<Aside data-type="note">
+When you call `batch()` on a `PathObject`, the path is resolved to its underlying instance, and the batch context operates on that resolved instance.
+</Aside>
+
+You can only call `batch()` on an `PathObject` whose path resolves to a `LiveMap` or `LiveCounter` instance:
+
+<Code>
+
+### Javascript
+
+```
+const myObject = await channel.object.get();
+
+try {
+  // Call batch() on 'username', which resolves to a string value
+  await myObject.get('username').batch((ctx) => {});
+} catch (err) {
+  // Error 92007: Cannot batch operations on a non-LiveObject at path: username
+}
+```
+</Code>
+
+You can also call `batch()` on an `Instance` to batch operations on that specific object:
+
+<Code>
+
+### Javascript
+
+```
+const settingsInstance = myObject.get('settings').instance();
+
+if (settingsInstance) {
+  await settingsInstance.batch((ctx) => {
+    ctx.set('theme', 'dark');
+    ctx.set('fontSize', 14);
+    ctx.remove('oldSetting');
+  });
+}
+```
+</Code>
+
+## Create objects in a batch 
+
+You can create new objects inside a batch using `LiveMap.create()` and `LiveCounter.create()`. This allows you to atomically create and assign multiple objects in a single operation:
+
+<Code>
+
+### Javascript
+
+```
+const myObject = await channel.object.get();
+
+await myObject.batch((ctx) => {
+  // Create and assign multiple objects atomically
+  ctx.set('user', LiveMap.create({
+    name: 'Alice',
+    score: LiveCounter.create(0),
+    settings: LiveMap.create({
+      theme: 'dark',
+      notifications: true
+    })
+  }));
+
+  ctx.set('visits', LiveCounter.create(0));
+  ctx.set('reactions', LiveMap.create({
+    likes: 0,
+    hearts: 0
+  }));
+});
+```
+</Code>
+
+Creating objects inside a batch ensures that all objects are created and assigned as a single atomic operation, preventing inconsistent intermediate states.
+
+## Navigate a batch context 
+
+Navigate to nested objects using the `get()` method on the batch context. Navigating a batch context with `get()` has the same behaviour as navigating an [`Instance`](https://ably.com/docs/liveobjects/concepts/instance.md#navigate):
+
+<Code>
+
+### Javascript
+
+```
+await myObject.batch((ctx) => {
+  // Navigate to nested paths and perform operations
+  ctx.get('settings')?.set('theme', 'dark');
+  ctx.get('settings')?.get('preferences')?.set('language', 'en');
+
+  // Increment a nested LiveCounter instance
+  ctx.get('visits')?.increment(5);
+});
+```
+</Code>
+
+
+## Cancel a batch 
+
+To explicitly cancel a batch before it is applied, throw an error inside the batch function. This prevents any queued operations from being applied:
+
+<Code>
+
+### Javascript
+
+```
+try {
+  await myObject.batch((ctx) => {
+    // Cancel the entire batch if a required value is missing
+    const value = ctx.get('visits')?.value();
+    if (value === undefined) {
+      throw new Error('visits key is missing');
+    }
+
+    // Will not be applied if visits is missing
+    ctx.set('lastSeen', Date.now());
+  });
+} catch (err) {
+  // Batch operations not applied if visits is missing
+}
+```
+</Code>
+
+## Understand batch context behavior 
+
+The batch context has the same API as [Instance](https://ably.com/docs/liveobjects/concepts/instance.md), except for `batch()` itself, but all mutation methods are synchronous and queue operations instead of sending them immediately. After the callback completes, all queued operations are sent together in a single channel message.
+
+<Aside data-type='important'>
+The batch callback function must be synchronous because the batch method sends the grouped operations as soon as the callback function completes. If you need to perform asynchronous operations (such as fetching data), do so outside the callback function before calling `batch()`.
+</Aside>
+
+<Code>
+
+### Javascript
+
+```
+try {
+  await myObject.batch((ctx) => {
+    // These operations are synchronous and queued
+    ctx.get('settings')?.set('theme', 'dark');
+    ctx.get('visits')?.increment();
+  });
+  // All operations published successfully
+} catch (err) {
+  // Failed to publish operations, none of them were published
+}
+```
+</Code>
+
+<Aside data-type='note'>
+Although the batch context provides a synchronous API, updates to objects are only applied _after_ the batch callback function has run and the changes have been acknowledged by the Ably system. When the `batch()` promise resolves, all operations have been applied and you can immediately read the updated state.
+</Aside>
+
+Since the batch callback is synchronous, you can read current values inside a batch context without intermediate updates from other clients being applied between reads:
+
+<Code>
+
+### Javascript
+
+```
+await myObject.batch((ctx) => {
+  ctx.get('settings')?.get('theme')?.value(); // "dark"
+  // no updates will be applied during execution of the batch callback
+  ctx.get('settings')?.get('theme')?.value(); // "dark"
+});
+```
+</Code>
+
+Operations on a batch context are not applied until they are all published, so you cannot read back data written inside the batch context callback:
+
+<Code>
+
+### Javascript
+
+```
+await myObject.batch((ctx) => {
+  // Get the value at the time batch() was called
+  ctx.get('settings')?.get('theme')?.value(); // "dark"
+
+  // Update the value
+  ctx.get('settings')?.set('theme', 'light');
+
+  // The previous update will not be applied until the batch
+  // callback completes, so the new value cannot be read back
+  ctx.get('settings')?.get('theme')?.value(); // "dark"
+});
+```
+</Code>
+
+The batch context object cannot be used outside the callback function. Attempting to do so results in an error:
+
+<Code>
+
+### Javascript
+
+```
+let context;
+await myObject.batch((ctx) => {
+  context = ctx;
+  ctx.set('foo', 'bar');
+});
+
+// Calling any methods outside the batch callback will throw an error
+try {
+  context.set('baz', 42);
+} catch (error) {
+  // Error: Batch is closed
+}
+```
+</Code>
+
+When a batch operation is applied, the subscription is notified synchronously and sequentially for each operation included in the batch:
+
+<Code>
+
+### Javascript
+
+```
+// Subscribe to the channel object
+myObject.subscribe(({ object, message }) => {
+  console.log("Update:", message?.operation.action, message?.operation?.mapSet?.key);
+});
+
+// Perform a batch operation
+await myObject.batch((ctx) => {
+  ctx.set('foo', 'bar');
+  ctx.set('baz', 42);
+  ctx.set('qux', 'hello');
+});
+
+// Update: map.set foo
+// Update: map.set baz
+// Update: map.set qux
+```
+</Code>
+
+## Related Topics
+
+- [Lifecycle events](https://ably.com/docs/liveobjects/lifecycle.md): Understand lifecycle events for Objects, LiveMap and LiveCounter to track synchronization events and object deletions.
+- [Typing](https://ably.com/docs/liveobjects/typing.md): Type objects on a channel for type safety and code autocompletion.
+- [Inband objects](https://ably.com/docs/liveobjects/inband-objects.md): Subscribe to LiveObjects updates from Pub/Sub SDKs.
+- [Object storage](https://ably.com/docs/liveobjects/storage.md): Learn about LiveObjects object storage.
+- [Using the REST SDK](https://ably.com/docs/liveobjects/rest-sdk-usage.md): Learn how to work with Ably LiveObjects using the REST SDK
+- [Using the REST API](https://ably.com/docs/liveobjects/rest-api-usage.md): Learn how to work with Ably LiveObjects using the REST API
+
+## Documentation Index
+
+To discover additional Ably documentation:
+
+1. Fetch [llms.txt](https://ably.com/llms.txt) for the canonical list of available pages.
+2. Identify relevant URLs from that index.
+3. Fetch target pages as needed.
+
+Avoid using assumed or outdated documentation paths.

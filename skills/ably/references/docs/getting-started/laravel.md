@@ -1,0 +1,481 @@
+# Getting started: Pub/Sub in Laravel
+
+This guide will get you started with Ably Pub/Sub in Laravel 12.
+
+You'll learn how to create a client and establish a connection to Ably using the [Laravel Broadcaster](https://github.com/ably/laravel-broadcaster) service provider and [Echo](https://github.com/ably-forks/laravel-echo) (a Laravel Echo fork with native Ably integration). You'll also cover creating an event to broadcast messages from the backend and setting up a frontend client to receive and publish messages to a channel.
+
+![Screenshot of the completed Laravel Pub/Sub application showing a web interface with a message input field and realtime message display. The interface demonstrates the key features you'll build including publishing messages and subscribing to receive messages in realtime.](https://raw.githubusercontent.com/ably/docs/main/src/images/content/screenshots/getting-started/pub-sub-laravel-getting-started-guide.png)
+
+<Aside data-type='note'>
+Using an AI coding assistant? [Teach it Ably](https://ably.com/docs/platform/ai-llms.md#agent-skills) with Agent Skills for all popular AI coding agents. Run `claude plugin add ably/agent-skills` or `npx skills add ably/agent-skills` to get started.
+</Aside>
+
+## Prerequisites 
+
+1. [Sign up](https://ably.com/signup) for an Ably account.
+2. Create a [new app](https://ably.com/accounts/any/apps/new), and create your first API key in the **API Keys** tab of the dashboard.
+3. Your API key will need the `publish`, `presence`, and `history` capabilities.
+4. Install [PHP](https://www.php.net/downloads.php) version 8.2 or greater and [Laravel](https://laravel.com/docs) version 12.0 or greater.
+5. Create a new Laravel project and install the Ably Broadcaster for Laravel:
+
+<Code>
+
+### Shell
+
+```
+# Create a new Laravel project
+composer create-project laravel/laravel ably-laravel-quickstart
+cd ably-laravel-quickstart
+
+# Install the Ably Broadcaster for Laravel
+composer require ably/laravel-broadcaster
+
+# Setup API route
+php artisan install:api
+```
+</Code>
+
+6. Now run the two dev servers (PHP and Vite) in separate Terminal windows:
+
+<Code>
+
+### Shell
+
+```
+php artisan serve # http://localhost:8000
+npm install
+npm run dev
+```
+</Code>
+
+### (Optional) Install Ably CLI 
+
+Use the [Ably CLI](https://github.com/ably/cli) as an additional client to quickly test Pub/Sub features. It can simulate other clients by publishing messages, subscribing to channels, and managing presence states.
+
+1. Install the Ably CLI:
+
+<Code>
+
+#### Shell
+
+```
+npm install -g @ably/cli
+```
+</Code>
+
+2. Run the following to log in to your Ably account and set the default app and API key:
+
+<Code>
+
+#### Shell
+
+```
+ably login
+```
+</Code>
+
+<If loggedIn={false}>
+  <Aside data-type='note'>
+  The code examples in this guide include a demo API key. If you wish to interact with the Ably CLI and view outputs within your Ably account, ensure that you replace them with your own API key.
+  </Aside>
+</If>
+
+## Step 1: Configure the Ably Laravel SDK 
+
+The Ably Laravel SDK integrates with Laravel's broadcasting system. You need to configure it to establish a connection with Ably.
+
+First, add your Ably credentials to your `.env` file:
+
+<Code>
+
+### Laravel
+
+```
+BROADCAST_CONNECTION=ably
+ABLY_KEY=your-api-key
+```
+</Code>
+
+In Laravel 12, broadcasting is enabled by default. Verify that `BroadcastServiceProvider` is included in `bootstrap/providers.php`:
+
+<Code>
+
+### Laravel
+
+```
+<?php
+
+return [
+    App\Providers\AppServiceProvider::class,
+    App\Providers\BroadcastServiceProvider::class,
+];
+```
+</Code>
+
+Publish the broadcasting configuration file if it doesn't exist:
+
+<Code>
+
+### Shell
+
+```
+php artisan install:broadcasting --ably
+```
+</Code>
+
+This will create the `config/broadcasting.php` file and add the Ably configuration automatically.
+
+## Step 2: Create the event that will be broadcast 
+
+To send events from Laravel to Ably, create an event file by running the following command in your terminal:
+
+<Code>
+
+### Shell
+
+```
+php artisan make:event PublicMessageEvent
+```
+</Code>
+
+This command will create a `PublicMessageEvent.php` file in the `app/Events` directory. Replace the content of the file with following to handle the broadcasting of messages to a public channel:
+
+<Code>
+
+### Laravel
+
+```
+<?php
+
+namespace App\Events;
+
+use Illuminate\Broadcasting\Channel;
+use Illuminate\Broadcasting\InteractsWithSockets;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Foundation\Events\Dispatchable;
+use Illuminate\Queue\SerializesModels;
+
+/**
+ * Event for broadcasting public messages.
+ */
+class PublicMessageEvent implements ShouldBroadcastNow
+{
+    use Dispatchable, InteractsWithSockets, SerializesModels;
+
+    public $channelName;
+    public $message;
+
+    /**
+     * Create a new event instance.
+     */
+    public function __construct($channelName, $message)
+    {
+        $this->channelName = $channelName;
+        $this->message = $message;
+    }
+
+    /**
+     * Get the channels the event should broadcast on.
+     *
+     * @return array<\Illuminate\Broadcasting\Channel>
+     */
+    public function broadcastOn(): array
+    {
+        return [new Channel($this->channelName)];
+    }
+}
+```
+</Code>
+
+## Step 3: Add an API route to broadcast 
+
+To handle API requests from frontend, open the `routes/api.php` file and add following route:
+
+<Code>
+
+### Laravel
+
+```
+<?php
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
+use App\Events\PublicMessageEvent;
+
+Route::post('/public-event', function (Request $request) {
+    $channelName = $request->input('channelName');
+    $message = $request->input('message');
+    broadcast(new PublicMessageEvent($channelName, $message));
+    return response()->json(['success' => true, 'message' => 'Event broadcasted']);
+})->middleware('throttle:60,1'); // 60 requests/minute are allowed.
+```
+</Code>
+
+This endpoint `public-event` will accept POST requests with `channelName` and `message` parameters, and broadcast the event to the specified channel.
+
+## Step 4: Test the API route 
+
+To test the API route, first you need at least one client subscribed to the channel. You can use the Ably CLI to subscribe to a channel:
+
+<Code>
+
+### Shell
+
+```
+ably channels subscribe public:my-first-channel
+```
+</Code>
+
+Now you can publish a message to the channel using the API route you created in Step 3. You can use `curl` or any HTTP client to send a POST request:
+
+<Code>
+
+### Shell
+
+```
+curl --location --request POST 'localhost:8000/api/public-event' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "channelName":"my-first-channel",
+    "message":"A message sent from my first client!"
+}'
+```
+</Code>
+
+## Step 5: Frontend setup 
+
+Install `Ably's Pub/Sub JavaScript SDK`, Ably's fork of `laravel-echo`, and `axios` in your Laravel project:
+
+<Code>
+
+### Shell
+
+```
+npm install @ably/laravel-echo ably axios
+```
+</Code>
+
+Create or update `resources/js/bootstrap.js` to include Echo configuration:
+
+<Code>
+
+### Laravel
+
+```
+import axios from 'axios';
+window.axios = axios;
+
+window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
+
+// Configure Laravel Echo with Ably
+import Echo from '@ably/laravel-echo';
+import * as Ably from 'ably';
+
+window.Ably = Ably;
+
+window.Echo = new Echo({
+    broadcaster: 'ably',
+    key: import.meta.env.VITE_ABLY_KEY, // Add this to your .env file as VITE_ABLY_KEY
+});
+```
+</Code>
+
+## Step 6: Create a frontend file to listen for events 
+
+Create a new CSS stylesheet `resources/css/echo.css` and add the Tailwind imports:
+
+<Code>
+
+### Text
+
+```
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+```
+</Code>
+
+Now create a new Blade view file named `echo.blade.php` in the `resources/views` directory, which will be the page rendered in your browser as your front end client to publish and subscribe to a channel:
+
+<Code>
+
+### Laravel
+
+```
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Laravel Echo with Ably</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    @vite(['resources/css/app.css','resources/css/echo.css', 'resources/js/app.js'])
+</head>
+<body class="font-sans max-w-4xl mx-auto p-5 bg-gray-50 leading-relaxed">
+    <h1 class="text-slate-800 text-4xl mb-8 text-center font-bold tracking-tight">Laravel Echo with Ably Test</h1>
+
+    <form id="messageForm" class="my-5 p-5 bg-white rounded-lg shadow-sm">
+        <h3 class="text-slate-700 text-xl mb-4 font-semibold">Send a Message</h3>
+        <input type="text" id="channelName" placeholder="Channel name" value="my-first-channel"
+               class="w-48 px-4 py-3 m-1 border-2 border-gray-200 rounded-md text-sm bg-white transition-colors focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
+        <input type="text" id="messageInput" placeholder="Enter your message" required
+               class="w-48 px-4 py-3 m-1 border-2 border-gray-200 rounded-md text-sm bg-white transition-colors focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
+        <button type="submit" class="px-6 py-3 m-1 bg-blue-600 text-white border-none rounded-md text-sm font-semibold cursor-pointer transition-colors hover:bg-blue-700 active:translate-y-px">Send Message</button>
+    </form>
+
+    <div id="messages" class="border-2 border-gray-200 rounded-lg p-4 h-80 overflow-y-auto my-5 bg-white shadow-sm">
+        <p class="message py-2 border-b border-gray-100 text-gray-600"><strong>Listening for messages...</strong></p>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Echo instance:', window.Echo);
+
+            console.log('Attempting to join channel: my-first-channel');
+
+            const channel = Echo.channel('my-first-channel')
+                .subscribed(() => {
+                    console.log('Successfully subscribed to channel');
+                })
+                .listenToAll((eventName, data) => {
+                    console.log("Event :: " + eventName + ", data is :: " + JSON.stringify(data));
+                })
+                .listen('PublicMessageEvent', (data) => {
+                    document.getElementById('messages').innerHTML +=
+                        `<div class="message py-2 border-b border-gray-100 text-gray-600"><strong>Received:</strong> ${data.message}</div>`;
+                })
+                .error((err) => {
+                    if (err?.statusCode === 401){
+                        alert("You don't have the access to join this public room.");
+                    } else {
+                        alert("An error occurred while trying to join a public room, check the console for details.");
+                    }
+                    console.error(err);
+                });
+
+            // Handle form submission
+            document.getElementById('messageForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+
+                const channelName = document.getElementById('channelName').value;
+                const message = document.getElementById('messageInput').value;
+                const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+                if (!message.trim()) {
+                    alert('Please enter a message');
+                    return;
+                }
+
+                // Send message to Laravel API
+                fetch('/api/public-event', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken,
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        channelName: channelName,
+                        message: message
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Message sent successfully:', data);
+                    document.getElementById('messageInput').value = ''; // Clear the input
+                    document.getElementById('messages').innerHTML +=
+                        `<div class="message py-2 border-b border-gray-100 text-gray-600"><strong>Sent:</strong> ${message} (to ${channelName})</div>`;
+                })
+                .catch(error => {
+                    console.error('Error sending message:', error);
+                    alert('Error sending message. Check console for details.');
+                });
+            });
+        });
+    </script>
+</body>
+</html>
+```
+</Code>
+
+Add the route to serve the frontend file in `routes/web.php` to expose this new file to the browser:
+
+<Code>
+
+### Laravel
+
+```
+<?php
+
+use Illuminate\Support\Facades\Route;
+
+Route::get('/', function () {
+    return view('welcome');
+});
+
+Route::get('/echo', function () {
+    return view('echo');
+});
+```
+</Code>
+
+In your browser, open the url `http://localhost:8000/echo` to see the frontend page.
+
+Use `curl` or any HTTP client to send a POST request, you should see the message appear in the `#messages` div on the page:
+
+<Code>
+
+### Shell
+
+```
+curl --location --request POST 'localhost:8000/api/public-event' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "channelName":"my-first-channel",
+    "message":"A message sent from my first client!"
+}'
+```
+</Code>
+
+![Screenshot showing the Laravel Echo with Ably test page running in a browser](https://raw.githubusercontent.com/ably/docs/main/src/images/content/screenshots/getting-started/laravel-echo-example.png)
+
+## Next steps 
+
+Continue to explore the documentation with PHP as the selected framework:
+
+* Read more about [Ably Laravel Echo](https://github.com/ably-forks/laravel-echo).
+* Learn more about [Laravel Broadcasting](https://laravel.com/docs/broadcasting).
+* Explore the [Ably Laravel Broadcast app](https://github.com/ably-labs/laravel-broadcast-app) - a comprehensive example that builds upon this guide with features like:
+  * User authentication (registration + login),
+  * Public channels for guests,
+  * Private channels with presence for authenticated users,
+  * Typing indicators,
+  * Multi-room support.
+
+You can also explore the [Ably CLI](https://www.npmjs.com/package/@ably/cli) further, or visit the Pub/Sub [API references](https://ably.com/docs/api/rest-sdk.md).
+
+## Related Topics
+
+- [Overview](https://ably.com/docs/getting-started.md): Getting started with Ably Pub/Sub in your language or framework of choice. Learn how to publish, subscribe, track presence, fetch message history, and manage realtime connections.
+- [JavaScript](https://ably.com/docs/getting-started/javascript.md): Get started with Pub/Sub in vanilla JavaScript using Ably. Learn how to publish, subscribe, track presence, fetch message history, and manage realtime connections.
+- [Node.js](https://ably.com/docs/getting-started/node.md): Get started with Pub/Sub in JavaScript using Ably. Learn how to publish, subscribe, track presence, fetch message history, and manage realtime connections.
+- [React](https://ably.com/docs/getting-started/react.md): A getting started guide for Ably Pub/Sub React that steps through some of the key features using React and Vite.
+- [React Native](https://ably.com/docs/getting-started/react-native.md): A getting started guide for Ably Pub/Sub React Native that steps through some of the key features using React Native with Expo.
+- [Kotlin](https://ably.com/docs/getting-started/kotlin.md): Get started with Pub/Sub in Kotlin using Ably. Learn how to publish, subscribe, track presence, fetch message history, and manage realtime connections.
+- [Swift](https://ably.com/docs/getting-started/swift.md): Get started with Pub/Sub in Swift using Ably. Learn how to publish, subscribe, track presence, fetch message history, and manage realtime connections.
+- [Flutter](https://ably.com/docs/getting-started/flutter.md): A getting started guide for Ably Pub/Sub Flutter that steps through some of the key features using Flutter.
+- [Java](https://ably.com/docs/getting-started/java.md): A getting started guide for Ably Pub/Sub Java that steps through some of the key features using Java.
+- [Go](https://ably.com/docs/getting-started/go.md): Get started with Pub/Sub in Go using Ably. Learn how to publish, subscribe, track presence, fetch message history, and manage realtime connections.
+- [Python](https://ably.com/docs/getting-started/python.md): A getting started guide for Ably Pub/Sub Python that steps through some of the key features using Python.
+- [Ruby](https://ably.com/docs/getting-started/ruby.md): A getting started guide for Ably Pub/Sub Ruby that steps through some of the key features using Ruby.
+- [C# .NET](https://ably.com/docs/getting-started/dotnet.md): A getting started guide for Ably Pub/Sub C# .NET that steps through some of the key features using C# and .NET.
+- [Objective C](https://ably.com/docs/getting-started/objective-c.md): A getting started guide for Ably Pub/Sub Objective-C that steps through some of the key features using Objective-C.
+- [PHP](https://ably.com/docs/getting-started/php.md): A getting started guide for Ably Pub/Sub PHP that steps through some of the key features using PHP.
+
+## Documentation Index
+
+To discover additional Ably documentation:
+
+1. Fetch [llms.txt](https://ably.com/llms.txt) for the canonical list of available pages.
+2. Identify relevant URLs from that index.
+3. Fetch target pages as needed.
+
+Avoid using assumed or outdated documentation paths.

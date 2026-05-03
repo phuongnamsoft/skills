@@ -1,0 +1,573 @@
+# Connection state and recovery
+
+Connections to Ably will transition through multiple states throughout their lifecycle. States can be observed and triggered using methods available on the connection object.
+
+Although connection state is temporary, Ably provides continuity of message delivery between a client and the service provided that a dropped connection is re-established by the client within a limited interval (typically around two minutes). After that time the connection becomes stale and the system will not attempt to recover the connection state.
+
+An Ably SDK is responsible for managing a connection. This includes:
+
+* Selecting a transport, when multiple transports are available.
+* Selecting a new host to connect to when automatically falling back to an alternate datacenter if needed.
+* Managing continuity of operation when the connection drops.
+
+When an SDK is instantiated it will establish a connection immediately, and if the connection drops at any time it will attempt to re-establish it by making repeated connection attempts every 15 seconds for up to two minutes.
+
+<Aside data-type='usp'>
+Automatic fallback to alternative endpoints.
+
+Failed connections automatically try up to 5 [alternative endpoints](https://ably.com/docs/platform/architecture/edge-network.md#protocol-level-resilience) worldwide, maximizing reconnection success.
+</Aside>
+
+## Available connection states 
+
+The different connection states are:
+
+| State | Description |
+|-------|-------------|
+| `initialized` | A `Connection` object has been initialized but not yet connected. |
+| `connecting` | A connection attempt has been initiated, this state is entered as soon as an SDK has completed initialization, and is re-entered each time connection is re-attempted following disconnection. |
+| `connected` | A connection exists and is active. |
+| `disconnected` | A temporary failure condition when no current connection exists. The disconnected state is entered if an established connection is dropped, or if a connection attempt is unsuccessful. In the disconnected state an SDK will periodically attempt to open a new connection (approximately every 15 seconds), anticipating the connection will be re-established soon and connection and channel continuity will be possible. In this state, developers can continue to publish messages as they are automatically placed in a local queue, sent when connection is re-established. Messages published by other clients whilst this client is disconnected will be delivered to it when reconnected if the connection was resumed within two minutes. After two minutes have elapsed, recovery is no longer possible and the connection will move to the `suspended` state. Publishing: Attempting to publish while disconnected will return error code [80003](https://ably.com/docs/platform/errors/codes.md#80003). |
+| `suspended` | A long term failure condition when no current connection exists because there is no network connectivity or available host. The suspended state is entered after a failed connection attempt if there has then been no connection for a period of two minutes. In the suspended state, an SDK will periodically attempt to open a new connection every 30 seconds. Developers are unable to publish messages in this state. A new connection attempt can also be triggered by an explicit call to [`connect()`](https://ably.com/docs/api/realtime-sdk/connection.md#connect) on the `Connection` object. Once the connection has been re-established, channels will be automatically re-attached. The client has been disconnected for too long for them to resume from where they left off, so if it wants to catch up on messages published by other clients while it was disconnected, it needs to use the [history API](https://ably.com/docs/storage-history/history.md). Publishing: Attempting to publish while suspended will return error code [80002](https://ably.com/docs/platform/errors/codes.md#80002). |
+| `closing` | An explicit request by the developer to close the connection has been sent to the Ably service. If a reply is not received from Ably shortly, the connection will be forcibly terminated and the connection state will become `closed`. |
+| `closed` | The connection has been explicitly closed by the client. In the closed state, no reconnection attempts are made automatically by an SDK, and clients may not publish messages. No connection state is preserved by the service or by an SDK. A new connection attempt can be triggered by an explicit call to [`connect()`](https://ably.com/docs/api/realtime-sdk/connection.md#connect) on the `Connection` object, which will result in a new connection. |
+| `failed` | This state is entered if an SDK encounters a failure condition that it cannot recover from. This may be a fatal connection error received from the Ably service (e.g. an attempt to connect with an incorrect API key), or some local terminal error (e.g. the token in use has expired and the SDK does not have any way to renew it). In the failed state, no reconnection attempts are made automatically by an SDK, and clients may not publish messages. A new connection attempt can be triggered by an explicit call to [`connect()`](https://ably.com/docs/api/realtime-sdk/connection.md#connect) on the `Connection` object. Publishing: Attempting to publish while failed will return error code [80000](https://ably.com/docs/platform/errors/codes.md#80000). |
+
+### Example connection state sequences 
+
+There are a number of potential connection state sequences, but some of the more common sequences are covered in this section.
+
+The SDK is initialized and initiates a successful connection:
+
+`initialized → connecting → connected`
+
+An existing connection is dropped and re-established on the first attempt:
+
+`connected → disconnected → connecting → connected`
+
+An existing connection is dropped, and re-established after several attempts but within a two minute interval:
+
+`connected → disconnected → connecting → disconnected → … → connecting → connected`
+
+There is no connection established after initializing the SDK:
+
+`initialized → connecting → disconnected → connecting → … → suspended`
+
+After a period of being offline a connection is re-established:
+
+`suspended → connecting → suspended → … → connecting → connected`
+
+### Listen for connection state change 
+
+The `Connection` object is an `EventEmitter` and emits an event whose name is the new state whenever there is a connection state change. An event listener function is passed a [ConnectionStateChange](https://ably.com/docs/api/realtime-sdk/connection.md#connection-state-change) object as the first argument for state change events.
+
+The `Connection` object can also emit an event that is not a state change: an `update` event. This happens when there's a change to connection conditions and there is no applicable status or the state doesn't change, such as when an SDK remains connected after a [reauth](https://ably.com/docs/auth.md).
+
+<Code>
+
+#### Realtime Javascript
+
+```
+ realtime.connection.on('connected', (stateChange) => {
+     console.log('Ably is connected');
+ });
+```
+
+#### Realtime Nodejs
+
+```
+ realtime.connection.on('connected', (stateChange) => {
+     console.log('Ably is connected');
+ });
+```
+
+#### Realtime Java
+
+```
+  realtime.connection.on(ConnectionEvent.connected, new ConnectionStateListener() {
+    @Override
+    public void onConnectionStateChanged(ConnectionStateChange change) {
+      System.out.println("New state is connected");
+    }
+  });
+```
+
+#### Realtime Csharp
+
+```
+  realtime.Connection.On(ConnectionEvent.Connected, args => {
+    Console.WriteLine("Connected to Ably!");
+  });
+```
+
+#### Realtime Ruby
+
+```
+  realtime.connection.on(:connected) do
+    puts 'Ably is connected'
+  end
+```
+
+#### Realtime Python
+
+```
+  await realtime.connection.once_async('connected')
+  print('Connected to Ably')
+```
+
+#### Realtime Objc
+
+```
+  ARTEventListener *listener = [realtime.connection on:ARTRealtimeConnectionEventConnected callback:^(ARTConnectionStateChange *change) {
+    NSLog(@"Ably is connected");
+  }];
+```
+
+#### Realtime Swift
+
+```
+  let listener = realtime.connection.on(.connected) { change in
+    print("Ably is connected")
+  }
+```
+
+#### Realtime Go
+
+```
+client.Connection.On(ably.ConnectionEventConnected, func(change ably.ConnectionStateChange) {
+  fmt.Println("Ably is connected.")
+})
+```
+
+#### Realtime Flutter
+
+```
+realtime.connection.on().listen((ably.ConnectionStateChange stateChange) {
+  if (stateChange.current == ably.ConnectionState.connected) {
+    print('Ably is connected');
+  }
+});
+```
+</Code>
+
+Alternatively a listener may be registered so that it receives all state change events:
+
+<Code>
+
+#### Realtime Javascript
+
+```
+  realtime.connection.on((stateChange) => {
+    console.log('New connection state is ' + stateChange.current);
+  });
+```
+
+#### Realtime Nodejs
+
+```
+  realtime.connection.on((stateChange) => {
+    console.log('New connection state is ' + stateChange.current);
+  });
+```
+
+#### Realtime Java
+
+```
+  realtime.connection.on(new ConnectionStateListener() {
+    @Override
+    public void onConnectionStateChanged(ConnectionStateChange change) {
+      System.out.println("New state is " + change.current.name());
+    }
+  });
+```
+
+#### Realtime Csharp
+
+```
+  realtime.Connection.On(args => {
+    Console.WriteLine("New state is " + args.Current)
+  });
+```
+
+#### Realtime Ruby
+
+```
+  realtime.connection.on do |state_change|
+    puts "New connection state is #{state_change.current}"
+  end
+```
+
+#### Realtime Python
+
+```
+  def listener(state_change):
+      print(state_change.current)
+  realtime.connection.on(listener)
+```
+
+#### Realtime Objc
+
+```
+  ARTEventListener *listener = [realtime.connection on:^(ARTConnectionStateChange *change) {
+    NSLog(@"New connection state is %lu", (unsigned long)change.current);
+  }];
+```
+
+#### Realtime Swift
+
+```
+  let listener = realtime.connection.on { change in
+    print("New connection state is \(change!.current)")
+  }
+```
+
+#### Realtime Go
+
+```
+	client.Connection.OnAll(func(stateChange ably.ConnectionStateChange) {
+		log.Printf("New connection state is %s", stateChange.Current)
+	})
+```
+
+#### Realtime Flutter
+
+```
+realtime.connection
+    .on(ably.ConnectionEvent.connected)
+    .listen((ably.ConnectionStateChange stateChange) {
+  print('New connection state is ${stateChange.current.name}');
+});
+```
+</Code>
+
+Previously registered listeners can be removed individually or all together:
+
+<Code>
+
+#### Realtime Javascript
+
+```
+  /* remove a listener registered for a single event */
+  realtime.connection.off('connected', myListener);
+
+  /* remove a listener registered for all events */
+  realtime.connection.off(myListener);
+
+  /* remove all event listeners */
+  realtime.connection.off();
+```
+
+#### Realtime Nodejs
+
+```
+  /* remove a listener registered for a single event */
+  realtime.connection.off('connected', myListener);
+
+  /* remove a listener registered for all events */
+  realtime.connection.off(myListener);
+
+  /* remove all event listeners */
+  realtime.connection.off();
+```
+
+#### Realtime Java
+
+```
+  /* remove a single listener */
+  realtime.connection.off(myListener);
+
+  /* remove all event listeners */
+  realtime.connection.off();
+```
+
+#### Realtime Csharp
+
+```
+  /* remove a single handler */
+  realtime.Connection.Off(action);
+
+  /* remove all event handlers */
+  realtime.Connection.Off();
+```
+
+#### Realtime Ruby
+
+```
+  # remove a listener registered for a single even
+  realtime.connection.off :connected, &block
+
+  # remove a listener registered for all events
+  realtime.connection.off &block
+
+  # remove all event listeners
+  realtime.connection.off
+```
+
+#### Realtime Python
+
+```
+  # remove a single listener
+  realtime.connection.off(listener)
+
+  # remove all listeners
+  realtime.connection.off()
+```
+
+#### Realtime Objc
+
+```
+  // remove a listener registered for a single event
+  [realtime.connection off:ARTRealtimeConnectionEventConnected listener:listener];
+
+  // remove a listener registered for all events
+  [realtime.connection off:listener];
+
+  // remove all event listeners
+  [realtime.connection off];
+```
+
+#### Realtime Swift
+
+```
+  // remove a listener registered for a single event
+  realtime.connection.off(.connected, listener: listener)
+
+  // remove a listener registered for all events
+  realtime.connection.off(listener)
+
+  // remove all event listeners
+  realtime.connection.off()
+```
+
+#### Realtime Go
+
+```
+	// Define a listener function
+	myListener := func(stateChange ably.ConnectionStateChange) {
+		log.Printf("Connection state changed to %s", stateChange.Current)
+	}
+
+	// Add a listener for the 'connected' event
+	offConnected, err := client.Connection.On(ably.ConnectionEventConnected, myListener)
+	if err != nil {
+		log.Fatalf("Error adding listener: %v", err)
+	}
+
+	// Add a listener for all connection events
+	offAll, err := client.Connection.OnAll(myListener)
+	if err != nil {
+		log.Fatalf("Error adding listener: %v", err)
+	}
+
+  // Remove the listener for the 'connected' event
+	offConnected()
+
+	// Remove the listener for all events
+	offAll()
+
+	// Remove all listeners
+	client.Connection.Off()
+```
+</Code>
+
+Be aware that when registering listeners for connection state changes certain repeating states may add new listeners each time. For example, registering a listener for `on(connected)` adds a new listener each time a client becomes connected, even if this is a reconnected after being offline for a period of time.
+
+## Connection state recovery 
+
+The Ably system preserves connection state to allow connections to continue transparently across brief disconnections. The connection state that is tracked includes the messages sent to the client on the connection, members present on a channel and the set of channels that the client is attached to.
+
+There are two modes of connection state recovery: `resume` and `recover`.
+
+### Resume 
+
+The `resume` mode provides transparent recovery of a live client instance across disconnections. Upon disconnection, an SDK will automatically re-attempt connection and, once the connection is re-established, any missed messages will be sent to the client. The developer does not need to do anything to trigger this behavior; all client channel event listeners remain attached and are called when the backlog of messages is received.
+
+There are limitations to `resume` recovery. Once a client has been disconnected for more than two minutes, the SDK moves into the suspended state indicating that the connection state is lost. At this point all channels are automatically suspended indicating that channel continuity is not possible. Once the connection is re-established, the SDK will reattach the suspended channels automatically and emit an attached event with the `resumed` flag set to `false`. This ensures that as a developer, you can listen for attached events and check the resumed flag to see if a channel resumed fully and no messages were lost. If channel continuity is not possible and historical messages are important to you, you would use [history](https://ably.com/docs/storage-history/history.md) to retrieve all older messages, with `untilAttach` set to `true`.
+
+### Recover 
+
+The `recover` mode addresses the case in which a new SDK instance wishes to connect and recover the state of an earlier connection. This occurs typically in a browser environment when the page has been refreshed and therefore the client instance is disposed of and no client state is retained. In this case any message listeners associated with channels will no longer exist so it is not possible for an SDK simply to send the message backlog on reconnection; instead the client must re-subscribe to each channel it is interested in within 15 seconds, and its message listener(s) will be called with any message backlog for that channel. If it has any members in the presence set, they will need to explicitly re-enter. If the previously attached channels are not re-attached within 15 seconds of a connection being recovered, the client will lose the ability to continue the message stream from before; any subsequent `attach()` will result in a fresh attachment, with no backlog sent. A client requests recovery of connection state by including a recovery string in the [client options](https://ably.com/docs/api/realtime-sdk.md#client-options) when instantiating the Realtime SDK. See [connection state recover options](#connection-state-recover-options) for more information.
+
+In either case, when a connection is resumed or recovered, the message backlog held on the server will be pushed to the client. However, any new messages published will be sent as they become available or messages could be indefinitely deferred on very heavily loaded connections. Therefore the system does not guarantee that messages received after reconnection are delivered in the same order that would have occurred if the connection had not been dropped. In the `recover` case, in particular, the order of the message delivery depends on the timing of the reattachment of each channel.
+
+#### Connection state recover options 
+
+In `recover` mode it is necessary to request recovery mode in the [client options](https://ably.com/docs/api/realtime-sdk.md#client-options) when instantiating an SDK. Recovery requires that an SDK knows the previous connection's [`recoveryKey`](https://ably.com/docs/api/realtime-sdk/connection.md#recovery-key) value (which includes both the private unique [`Connection#key`](https://ably.com/docs/api/realtime-sdk/connection.md#key) and the last message serial received on that connection). As the recovery key is never shared with any other clients, it allows Ably to safely resend message backlogs to the original client.
+
+<Aside data-type="note">
+Connection recovery requires that the new SDK instance uses credentials that are compatible with those used for the inherited connection; this requires that the same authentication mode is used, with the same key. If token auth was used, the same token is not required, but the token used must have the same `capability` and `ClientId`. This ensures that the client recovering the connection cannot receive a backlog of messages that its new credentials are not entitled to access. Incompatible credentials will result in an unrecoverable connection error.
+</Aside>
+
+In the browser environment, if a callback is provided in the `recover` option, when the `window.beforeunload` event fires, the connection details, including the [`recoveryKey`](https://ably.com/docs/api/realtime-sdk/connection.md#recovery-key), are stored in the [browser's sessionStorage](https://www.w3.org/TR/webstorage/). The provided `recover` callback is then invoked whenever the connection state can be recovered and just before a connection is established, passing in the [`LastConnectionDetails`](https://ably.com/docs/api/realtime-sdk/connection.md#last-connection-details). The callback is then responsible for confirming whether the connection state should be recovered or not. For example, it is common to recover connection state when the page is reloaded but not for different pages the user has navigated to. The callback allows the developer to decide if the connection should be recovered or not at the time the new connection is established by inspecting the [`LastConnectionDetails`](https://ably.com/docs/api/realtime-sdk/connection.md#last-connection-details) and evaluating that against any other application state. Below are two examples:
+
+Always recover the previous connection state if possible:
+
+<Code>
+
+##### Realtime Javascript
+
+```
+  const ably = new Ably.Realtime({
+    authUrl: '/obtainToken',
+    recover: (_, cb) => { cb(true); }
+  });
+```
+
+##### Realtime Nodejs
+
+```
+  const ably = new Ably.Realtime({
+    authUrl: '/obtainToken',
+    recover: (_, cb) => { cb(true); }
+  });
+```
+</Code>
+
+Recover the previous connection state conditionally based on some logic:
+
+<Code>
+
+##### Realtime Javascript
+
+```
+  const ably = new Ably.Realtime({
+    authUrl: '/obtainToken',
+    recover: (lastConnectionDetails, cb) => {
+      /* Only recover if the current path hasn't changed, start a
+       * fresh connection if it has. This is just an example, you
+       * can use whatever logic your app requires */
+      if (lastConnectionDetails.location.href === document.location.href) {
+        cb(true); /* recover connection */
+      } else {
+        cb(false); /* do not recover connection */
+      }
+    }
+  });
+```
+
+##### Realtime Nodejs
+
+```
+  const ably = new Ably.Realtime({
+    authUrl: '/obtainToken',
+    recover: (lastConnectionDetails, cb) => {
+      /* Only recover if the current path hasn't changed, start a
+       * fresh connection if it has. This is just an example, you
+       * can use whatever logic your app requires */
+      if (lastConnectionDetails.location.href === document.location.href) {
+        cb(true); /* recover connection */
+      } else {
+        cb(false); /* do not recover connection */
+      }
+    }
+  });
+```
+</Code>
+
+Please note that as [`sessionStorage`](https://www.w3.org/TR/webstorage/) is used to persist the `LastConnectionDetails` between page reloads, it is only available for pages in the same origin and top-level browsing context.
+
+#### Multiple SDK instances on the same origin
+
+When using the default recovery behavior with multiple ably-js SDK instances on the same origin (in different iframes or different contexts within the same page), sessionStorage key collisions can occur since the recovery key is stored under a fixed sessionStorage key name.
+
+To handle multiple SDK instances that need independent recovery, you should manually manage the recovery keys with context-specific sessionStorage keys:
+
+<Code>
+
+##### Realtime Javascript
+
+```
+const clientOpts = {
+  closeOnUnload: false, // Prevent connection being closed server-side when page closes
+  key: 'your-api-key'
+  // ... other auth options
+};
+
+// Use a unique sessionStorage key for each SDK context
+// This prevents recovery key collisions between multiple instances
+const sessionStorageKey = 'ably-sdk-recoverykey-for-mainpage'; // Make this specific to your context
+
+// Recover from previous session if one exists
+const previousSessionRecoveryKey = sessionStorage.getItem(sessionStorageKey);
+sessionStorage.removeItem(sessionStorageKey);
+if (previousSessionRecoveryKey) {
+  clientOpts.recover = previousSessionRecoveryKey;
+}
+
+const client = new Ably.Realtime(clientOpts);
+
+// Store recovery data when page is being closed or refreshed
+window.addEventListener('beforeunload', () => {
+  const recoveryKey = client.connection.createRecoveryKey();
+  sessionStorage.setItem(sessionStorageKey, recoveryKey);
+});
+```
+
+##### Realtime Nodejs
+
+```
+// This pattern is specific to browser environments with sessionStorage
+// Node.js applications would need alternative storage mechanisms
+```
+</Code>
+
+<Aside data-type="important">
+Do not attempt to recover multiple SDK instances from a single recovery key. Each SDK instance must have its own unique recovery key. Sharing recovery keys between instances will result in undefined behavior.
+</Aside>
+
+Alternatively, if it is necessary to be explicit about the connection `recoveryKey`, the connection can be recovered by providing the last value of the connection's `recoveryKey` value in the [client options](https://ably.com/docs/api/realtime-sdk.md#client-options) `recover` attribute when instantiating an SDK.
+
+## Handling connection failures 
+
+Ably SDKs will attempt to automatically recover from non-fatal error conditions. However, it will emit events to say what it's doing, so you can handle them yourself if you prefer.
+
+### System-initiated disconnections 
+
+The Ably system can validly drop client connections at any point for operational reasons, including:
+
+* Internal autoscaling: Automatic scaling of Ably's infrastructure.
+* Connection rebalancing: Distributing connections across servers for optimal performance.
+* Service deployments: Updates to services that clients are connected to or routed through.
+
+When this occurs, the Ably SDK will immediately and automatically reconnect, using connection state recovery functionality to resume with full connection continuity (no missed messages). This process is typically exposed as a connection state change from `connected` to `connecting` (usually with error code 80003), followed by a return to `connected` once reconnected. The complete sequence generally takes just a few hundred milliseconds.
+
+This behavior is normal and expected - these brief disconnections are not indicative of problems with your application or network connectivity.
+
+### Fatal errors 
+
+Some classes of errors are fatal. These cause the connection to move to the `FAILED` state. An SDK will not attempt any automatic recovery actions. For example, if your token expires and an SDK has no way to get a new token (so no `authUrl` and `authCallback`), the connection will enter the `FAILED` state
+
+While an SDK will not automatically attempt to reconnect in the `FAILED` state, explicit calls to [`connect()`](https://ably.com/docs/api/realtime-sdk/connection.md#connect) will make the client try again.
+
+### Nonfatal errors 
+
+Other classes of error are nonfatal. For example, a client may have network connectivity issues. An SDK will attempt to automatically reconnect and recover from these sort of issues, as detailed in the `DISCONNECTED` and `SUSPENDED` explanations in the [available connection states](#connection-states) section.
+
+If message continuity is lost in the process, for example, because you have been disconnected from Ably for more than two minutes, the SDK will notify you through the [`resumed`](#resume) flag mechanism.
+
+## Mobile app lifecycle management 
+
+When using Ably in mobile apps, the connection will attempt to stay active even when your app moves to the background. However, mobile platforms may terminate background network connections to preserve battery life, especially when the app is suspended or force-quit.
+
+The Ably SDK will continue attempting to reconnect automatically, but mobile platforms progressively limit background network activity.
+
+If you want to explicitly manage connections based on your app's lifecycle:
+
+- Call [`close()`](https://ably.com/docs/api/realtime-sdk/connection.md#close) when the app enters the background if you don't need background connectivity.
+- Call [`connect()`](https://ably.com/docs/api/realtime-sdk/connection.md#connect) when the app returns to the foreground to re-establish the connection.
+
+It's good practice to call `close()` when your app no longer needs the connection, as this properly cleans up resources and removes all listeners. The connection will automatically close after about two minutes of inactivity, but explicit closure is recommended.
+
+## Related Topics
+
+- [Overview](https://ably.com/docs/connect.md): Establish and maintain a persistent connection to Ably using the realtime interface of an Ably SDK.
+
+## Documentation Index
+
+To discover additional Ably documentation:
+
+1. Fetch [llms.txt](https://ably.com/llms.txt) for the canonical list of available pages.
+2. Identify relevant URLs from that index.
+3. Fetch target pages as needed.
+
+Avoid using assumed or outdated documentation paths.

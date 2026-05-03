@@ -1,0 +1,100 @@
+# Data broadcast pricing example
+
+This example shows pricing for a sports betting data broadcast with live odds updates. It uses Ably's per-message and per-minute billing model, and demonstrates how message conflation reduces costs when only the latest value matters. The same pattern applies to any broadcast where only the latest value matters, such as stock tickers, live scores, auction platforms and transport arrivals.
+
+## Scenario
+
+- **Monthly active users:** 10,000
+- **Live matches:** 50 per month
+- **Users per match:** 200
+- **Session duration:** 120 minutes average
+- **Odds updates:** 10 per second from data provider
+
+**Total cost: $374.00/month**
+
+---
+
+## Cost breakdown
+
+The following breakdown shows the cost of connections, channels and messages in this scenario.
+
+### How messages are counted
+
+Every message counts as a billable message. Messages are counted when they're published to Ably and when they're delivered to viewers. Usage is billed in increments of one million messages, rounded up.
+
+One odds update sent to 200 viewers = 201 messages (one sent to Ably + 200 delivered to viewers).
+
+**Reducing cost with conflation**
+
+[Message conflation](https://ably.com/docs/messages.md#conflation) removes redundant and outdated messages by only sending the latest message to subscribers, within a specific time frame. Published messages are aggregated for a set period of time, such as every 500ms, evaluated against a conflation key with all but the most recent being discarded and sent to subscribers. For live odds, this is ideal, as users need the current price, not a history of changes.
+
+![Diagram showing Ably conflated subscriptions: live data feed, 500ms conflation window keeping only the latest update, and end user receiving one message per interval](https://raw.githubusercontent.com/ably/docs/main/src/images/content/diagrams/conflated-subscriptions-example-pricing-docs.png)
+
+In this example, conflation reduces outbound delivery from 10 updates/sec to 2 updates/sec (500ms interval), **saving approximately 80%** at this scale.
+
+| Message type              | Calculation                                            | Messages    |
+|---------------------------|--------------------------------------------------------|-------------|
+| Sent (from data provider) | 10 updates/sec × 7,200 sec × 50 matches                | 3,600,000   |
+| Delivered (to viewers)    | 2 updates/sec × 7,200 sec × 200 viewers × 50 matches   | 144,000,000 |
+| **Total messages**        | 3,600,000 + 144,000,000                                | 147,600,000 |
+| **Total message cost**    | 148,000,000 × $2.50/M                                  | **$370.00** |
+
+---
+
+### How connection and channel minutes are counted
+
+Both connection minutes and channel minutes are rounded up per million minutes used.
+
+#### Connection minutes
+
+[Connection minutes](https://ably.com/docs/platform/pricing.md#connections) are billed based on how long users remain connected.
+
+| Item                        | Calculation                          | Total          |
+|-----------------------------|--------------------------------------|----------------|
+| Connection minutes          | 50 matches x 200 users × 120 mins  | 1,200,000 mins |
+| **Connection minutes cost** | **2,000,000 mins × $1.00/M**              | **$2.00**      |
+
+#### Channel minutes
+
+[Channel minutes](https://ably.com/docs/platform/pricing.md#channels) are billed based on how long channels are active for.
+
+| Item                     | Calculation                              | Total          |
+|--------------------------|------------------------------------------|----------------|
+| Channel minutes          | 50 matches × 200 channels x 120 mins  | 1,200,000 mins |
+| **Channel minutes cost** | **2,000,000 mins × $1.00/M**                 | **$2.00**      |
+
+---
+
+### Total cost
+
+The total cost of this use case.
+
+| Item               | Cost             |
+|--------------------|------------------|
+| Messages           | $370.00          |
+| Connection minutes | $2.00            |
+| Channel minutes    | $2.00            |
+| **Total cost**     | **$374.00/month** |
+
+<Aside data-type='further-reading'>
+Useful links for exploring this topic in more detail.
+- [Talk with our sales team](https://ably.com/contact) to get a personalized quote.
+- [Learn how Genius Sports uses delta compression, significantly reducing transit latencies and bandwidth costs.](https://ably.com/case-studies/genius-sports)
+- [When Stadion set out to develop the fastest live scores app on the market, Ably was their No. 1 choice.](https://ably.com/case-studies/stadion)
+</Aside>
+## Related Topics
+
+- [AI support chatbot](https://ably.com/docs/platform/pricing/examples/ai-chatbot.md): Calculate AI Transport pricing for conversations with an AI chatbot. Example shows how using the message-per-response pattern and modifying the append rollup window can generate cost savings.
+- [Livestream chat](https://ably.com/docs/platform/pricing/examples/livestream.md): Calculate Ably Chat pricing for livestream events with high-concurrency chat. Example shows 5K concurrent viewers, message batching reducing costs by 95%, and total cost of ~$92.50 for a 1-hour major event.
+- [Support chat](https://ably.com/docs/platform/pricing/examples/support-chat.md): Calculate Ably Chat pricing for enterprise customer support chat. Example shows 50K MAU, one-to-one messaging, and why consumption pricing at ~$78/month outperforms MAU pricing at $2,500/month for support use cases.
+- [Realtime dashboard](https://ably.com/docs/platform/pricing/examples/realtime-dashboard.md): Calculate Pub/Sub pricing for healthcare patient monitoring dashboards. Example shows realtime vitals tracking for 100 patients monitored by 5 care coordinators, with total cost of ~$98/month including presence and history features.
+
+## Documentation Index
+
+To discover additional Ably documentation:
+
+1. Fetch [llms.txt](https://ably.com/llms.txt) for the canonical list of available pages.
+2. Identify relevant URLs from that index.
+3. Fetch target pages as needed.
+
+Avoid using assumed or outdated documentation paths.

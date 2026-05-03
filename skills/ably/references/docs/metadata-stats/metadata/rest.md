@@ -1,0 +1,85 @@
+# Metadata REST requests
+
+Metadata can be retrieved by REST request for a single channel, or for all active channels in an app. The information returned includes the current state of a channel and its [occupancy](https://ably.com/docs/presence-occupancy/occupancy.md).
+
+Since the metadata of channels often changes frequently, Ably recommends subscribing to [realtime events](https://ably.com/docs/metadata-stats/metadata/subscribe.md) rather than polling for status updates via REST. This is because data is likely to become stale shortly after it has been received.
+
+## Retrieve metadata of a single channel 
+
+Requesting the metadata for a single channel returns a [`ChannelDetails`](https://ably.com/docs/api/realtime-sdk/channel-metadata.md#channel-details) object for the given channel. This provides details about the channel including its [occupancy](https://ably.com/docs/presence-occupancy/occupancy.md). A side effect of this request is that it will cause the channel to be activated. It is intended to be used in conjunction with the API to [enumerate](#enumerate) a list of active channels in an app.
+
+Ably SDKs can query this endpoint using the generic [request()](https://ably.com/docs/api/rest-sdk.md#request) method.
+
+The following is an example curl request to retrieve metadata from a channel:
+
+<Code>
+
+### Shell
+
+```
+curl https://main.realtime.ably.net/channels/<channelId> \
+ -u "your-api-key"
+```
+</Code>
+
+<Aside data-type='important'>
+The `channel-metadata` [capability](https://ably.com/docs/auth/capabilities.md) is required to retrieve the metadata of a channel.
+</Aside>
+
+## Retrieve a list of channels 
+
+Requesting a list of channels will enumerate all active channels in an application as a [PaginatedResults](https://ably.com/docs/api/rest-sdk/types.md#paginated-result) object. You can specify whether to return just a list of channel names, or a [`ChannelDetails`](https://ably.com/docs/api/realtime-sdk/channel-metadata.md#channel-details) object for each channel. Returning a `ChannelDetails` object is often only necessary if you need to view the [occupancy](https://ably.com/docs/presence-occupancy/occupancy.md) of every channel.
+
+The following parameters are supported:
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| **limit** | `integer` | *100* optionally specifies the maximum number of results to return. The maximum is 1000 |
+| **prefix** | `string` | Optionally limits the query to only those channels whose name starts with the given prefix |
+| **by** | `string` | *id (v3) or value (v2)* optionally specifies what to return. Use `by=id` to return just channel names. Use `by=value` to return [`ChannelDetails`](https://ably.com/docs/api/realtime-sdk/channel-metadata.md#channel-details). Using `by=id` will be much faster, and making very regular `by=value` enumeration queries can prevent channels from closing down from inactivity |
+
+Ably SDKs can query this endpoint using the generic [request()](https://ably.com/docs/api/rest-sdk.md#request) method.
+
+The following is an example curl request to retrieve metadata from a channel:
+
+<Code>
+
+### Shell
+
+```
+curl https://main.realtime.ably.net/channels \
+ -u "your-api-key"
+```
+</Code>
+
+Note that this API is intended for occasional use only. For example, to get an initial set of active channels that will be kept up-to-date using the [`[meta]channel.lifecycle`](/docs/metadata-stats/metadata/subscribe#channel-lifecycle) metachannel. The API is heavily rate-limited and only a single in-flight call is permitted to execute at any time. Further concurrent calls will be refused with the error code `42912`.
+
+<Aside data-type='important'>
+The `channel-metadata` [capability](https://ably.com/docs/auth/capabilities.md) for the wildcard resource `'*'` is required to enumerate a list of active channels.
+</Aside>
+
+### Known limitations 
+
+`by=value`, which was the default for versions 2 and lower, has unintuitive behaviour, see the supported parameters table for more details. Use `by=id` where possible.
+
+It is possible to enumerate all channels in an app using repeated calls to the API and following the `next` relative link of each successive call. This is subject to several limitations:
+
+* Channels that become active, or inactive, between the first and last request in the sequence, may or may not appear in the result. The API guarantees that if a channel is continuously active from the time that the first request is made until the time that the last request completes, then it will be present in the result. Similarly, if a channel is continuously inactive between those times then it will not to be present in the result.
+* Since the state of the cluster processing a request may change between successive calls, a pagination sequence may become invalid, in which case the request will respond with the error code `40011`. In this case, it is necessary to start the enumeration again from the beginning to get a complete result. Enumerations that are satisfiable in the first response page do not have this issue.
+* The API does not guarantee that the limit will be achieved even if that would be possible. For example, if you specify a limit of 100, the API may return only 37 results together with a `next` link to get the next page, even if you have more than 37 channels. In an extreme case, the API may return 0 results with a next link. In particular this may be the case if you have a large number of active channels but are specifying a `prefix` that excludes a significant proportion of them.
+* The API does not guarantee that there will be no duplicated results between different pages, especially if a channel is active in multiple regions.
+
+## Related Topics
+
+- [Overview](https://ably.com/docs/metadata-stats/metadata.md): Metadata retrieves information about app activity, such as connections, channels and API requests.
+- [Metadata subscriptions](https://ably.com/docs/metadata-stats/metadata/subscribe.md): Retrieve metadata updates in realtime by subscribing to metachannels.
+
+## Documentation Index
+
+To discover additional Ably documentation:
+
+1. Fetch [llms.txt](https://ably.com/llms.txt) for the canonical list of available pages.
+2. Identify relevant URLs from that index.
+3. Fetch target pages as needed.
+
+Avoid using assumed or outdated documentation paths.

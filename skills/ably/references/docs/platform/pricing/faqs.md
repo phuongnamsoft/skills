@@ -1,0 +1,174 @@
+# Pricing FAQs
+
+Answers to the most commonly asked questions related to Ably pricing.
+
+## Costs and billing 
+
+FAQs related to package costs and package billing.
+
+### When and how often am I billed? 
+
+Usage is calculated on the last day of the month. Invoices are issued in arrears on the 1st of the following month.
+
+Mid-month upgrades are charged pro-rata from the upgrade date.
+
+Package downgrades take effect on the 1st of the following month.
+
+For Enterprise packages, consult your contract for billing information, or contact your Customer Success Manager.
+
+## Concepts and limits 
+
+FAQs related to pricing concepts and package limits.
+
+### How do you count concurrent connections? 
+
+The [limit](https://ably.com/docs/platform/pricing/limits.md#connection) on concurrent connections is the maximum number of realtime clients [connected](https://ably.com/docs/connect.md) to Ably simultaneously at any point in time. HTTP requests from REST clients do not count towards this number.
+
+### How do you count concurrent channels? 
+
+The [limit](https://ably.com/docs/platform/pricing/limits.md#channel) on concurrent channels is the maximum number of channels active simultaneously at any point in time.
+
+[Channels](https://ably.com/docs/channels.md) are opened when either a message is published on the channel using a REST client, or a realtime client attaches to the channel. They are considered active until the channel is closed.
+
+A channel will automatically close when there are no more realtime clients attached, and approximately one minute has passed since the last realtime client detached or since a message was published to the channel.
+
+For example, if you have 10,000 users, and at your busiest time of the month there is a single spike where 500 customers establish a realtime connection to Ably and each attach to one unique channel, and one global shared channel. The concurrent number of channels would be the sum of the 500 unique channels per client and the one global shared channel, so 501 concurrent channels.
+
+### How is maximum message size measured? 
+
+Maximum message size is based on the [package type](https://ably.com/docs/platform/pricing.md#packages). The size is calculated as the sum of the `name`, `clientId`, `data` and `extras` [properties](https://ably.com/docs/api/realtime-sdk/messages.md#properties) before any compression or expansion occurs in the serialization process.
+
+* `name` and `clientId` are calculated as the size in bytes of their UTF-8 representation.
+* `data` is calculated as the size in bytes if it is in binary, or its UTF-8 byte length if it is a string.
+* `extras` is calculated as the string length of its JSON representation.
+
+If the `data` is binary and the message is sent on a text transport with base64 encoded data, and has an encoding attribute of base64, the size is calculated using the actual size of the binary data, not its base64 encoded string.
+
+If [publishing](https://ably.com/docs/api/realtime-sdk/channels.md#publish) an array of messages, the message size limit applies to the sum of all messages in the array, as they are treated as a single unit by the Ably platform. This is even though the are published and broadcast atomically.
+
+### What happens if I exceed a limit? 
+
+The effect of exceeding a [limit](https://ably.com/docs/platform/pricing/limits.md) differs depending on the limit.
+
+In most cases, exceeding a limit means that an app is performing well. Ably won't penalize success by blocking usage on accounts for most limits. Normal service will continue to function, up to a point, beyond the limit. Notifications are sent when nearing a limit, and again when you need to upgrade your package to accommodate increased usage.
+
+Limits will come into force either because there isn't any buffer on them, or because you have exceeded the buffer. Exceeding the limit depends on the limit:
+
+* **Count-based limits**: only a set amount of resources can be in use simultaneously. This means that any usage in excess of that limit will be restricted until existing resources are removed, such as the number of concurrent connections, or concurrent channels.
+* **Rate-based limits**: the rate at which resources can be used, expressed as their frequency per second. Usage in excess of a rate limit can be rejected locally, such as a publisher trying to publish at a rate in excess of the publish rate per channel. The publisher will have any publish attempts in excess of this rate rejected and have an error code returned. Other rate limits apply rate suppression across your account when exceeded. For example, if the limit for publishing messages into a queue is exceeded by twice the rate, then each message will have a 50% chance of being rejected. The suppression probability is continuously updated based on the publishing rate.
+
+## Data and compliance 
+
+FAQs related to data and compliance.
+
+### What is your Data Protection policy? 
+
+Please read Ably's [Data Protection Policy](https://ably.com/data-protection) for full details on how your data is handled.
+
+### Can my data be constrained to the EU or US? 
+
+Yes. [Enterprise packages](https://ably.com/docs/platform/pricing/enterprise.md) can include the ability to restrict traffic to only a specific region, such as EU-only, or US-only.
+
+### Does Ably have a GDPR (General Data Protection Regulation) DPA (Data Processing Agreement) to sign? 
+
+No. This is not necessary as Ably's online Terms incorporate everything required within a DPA document. All customers globally can rely on Ably's [standard terms](https://www.ably.io/terms) which include the provisions for GDPR DPA, and which apply automatically when using AWS (Amazon Web Services) services to process personal data under the GDPR. By incorporating the GDPR DPA into the Ably Service Terms, the terms of the GDPR DPA extend to all customers globally who require it under GDPR. You can review the changes to the terms to incorporate GDPR requirements by reviewing the [legals audit trail](https://www.ably.io/legals) from 29 March 2018.
+
+### Is Ably compliant with HIPAA (Health Insurance Portability and Accountability Act)? 
+
+The following information outlines Ably's compliance with the US HIPAA Security Rule. For further information, [contact us](https://ably.com/contact).
+
+#### Is Ably a 'covered entity' which is required to comply with the HIPAA Security Rule?
+
+No. The HIPAA Security Rule operationalizes the protections contained in the HIPAA Privacy Rule by addressing the technical and non-technical safeguards that 'covered entities' must put in place to secure individuals' electronic protected health information (e-PHI).
+
+Covered entities include Health Plans, Health Care Providers and Healthcare Clearinghouses.
+
+Ably is not a Health Plan, nor a Health Care Provider, nor a Clearinghouse as defined by U.S. Department of Health & Human Services:
+
+*“Health care clearinghouses are entities that process nonstandard information they receive from another entity into a standard (i.e., standard format or data content), or vice versa.*
+
+*In most instances, health care clearinghouses will receive individually identifiable health information only when they are providing these processing services to a health plan or health care provider as a business associate.*
+
+*In such instances, only certain provisions of the Privacy Rule are applicable to the health care clearinghouse's uses and disclosures of protected health information.*
+
+*Health care clearinghouses include billing services, repricing companies, community health management information systems, and value-added networks and switches **if these entities perform clearinghouse functions**.”*
+
+#### Is Ably a 'business associate' under the terms of the HIPAA Security Rule?
+
+No. A business associate is “a person or organization, other than a member of a covered entity's workforce, that performs certain functions or activities on behalf of, or provides certain services to, a covered entity that involve the use or disclosure of individually identifiable health information.”
+
+Ably could be a business associate under this definition, however, the security rule further defines business associates as “organizations are not considered business associates if their functions or services do not involve the use or disclosure of protected health information, and **where any access to protected health information by such persons would be incidental, if at all**.”
+
+Whilst Ably may be used by covered entities to transport individually identifiable health information, Ably does not inspect the data it transports. Ably never inspects payloads. We treat them as opaque. Ably is a conduit for data (a 'dumb pipe') like the postal service in the physical world.
+
+#### Does Ably transport individually identifiable health information?
+
+As a transport for information Ably does not know the nature of the data we are handling. It is possible for our customers, who may be covered entities under HIPAA, to transport individually identifiable health information. However, Ably cannot inspect that data so there is no access to protected health information and any such access would be incidental, if at all.
+
+Under HIPAA there are no restrictions on the use or disclosure of de-identified health information which neither identifies nor provides a reasonable basis to identify an individual. Where Ably customers, even covered entities, use Ably only to transport de-identified health information, HIPAA does not apply.
+
+#### What level of data encryption does Ably use?
+
+Ably uses TLS 2048 bit encryption for all data in transit. However, customers can elect not to transmit their data over TLS. All data within the same data centre in Ably is moved around unencrypted as it cannot be intercepted, but is always encrypted when moved between data centres.
+
+Ably also offers optional 256-bit AES symmetric encryption which makes it impossible for Ably to inspect any data payloads moving through the system at all, even if we wanted to.
+
+#### Where is data going through the Ably platform stored?
+
+Data in transit is stored ephemerally (not on disk) in all 16+ data centres [globally](https://www.ably.io/network). Each region can have two or more data centres.
+
+Messages are only persisted when history is [explicitly enabled](https://ably.com/docs/storage-history/storage.md), and that data is stored in US East Virginia, Europe Ireland, and Asia Singapore.
+
+[Enterprise packages](https://ably.com/docs/platform/pricing/enterprise.md) have the option to choose where the data is routed and stored geographically.
+
+#### Is Ably prepared to sign a 'Business Associate Agreement' (BAA)?
+
+Under HIPAA, any covered entity must impose specified written safeguards on the individually identifiable health information used or disclosed by its business associates.
+
+As per the points above Ably is neither a covered entity nor a business associate under the terms of the HIPAA Security Rule.
+
+Some customers still like Ably to sign a business associate agreement which requires Ably to comply with specified safeguards.
+
+In most cases, Ably is happy to do this as we have such safeguards in place as a matter of course and most business associate agreements are standard. We also recognize that an Ably customer, if a covered entity, may not contractually authorize Ably to make any use or disclosure of protected health information that would violate the Security Rule.
+
+Ably is willing to sign Business Associate Agreements for our [Enterprise package](https://ably.com/docs/platform/pricing/enterprise.md) customers. [Contact us](https://ably.com/contact) if you have a Business Associate Agreement you would like Ably to review.
+
+## Ably package management 
+
+FAQs related to managing your Ably package.
+
+### How does the Free package work? 
+
+The [Free package](https://ably.com/docs/platform/pricing/free.md) is a zero friction way to explore Ably and its features without any commitment. No credit card is required to sign up and there's no time limit.
+
+Once production-level scale is needed, there's a simple path to upgrade to a subscription-based plan such as a [Standard](https://ably.com/docs/platform/pricing/standard.md) or [Pro](https://ably.com/docs/platform/pricing/pro.md) package.
+
+### Can I upgrade or downgrade my package at any time? 
+
+Yes.
+
+1. Ensure you are the [account owner](https://ably.com/docs/platform/account/users.md).
+2. Log in to your [account](https://ably.com/login) and select Billing from the Account menu.
+3. Select the package to upgrade or downgrade to.
+
+Upgrades take effect immediately, whilst downgrades will take effect at the beginning of the following month.
+
+### Can I close my account at any time? 
+
+Yes. You can [close your account](https://ably.com/docs/platform/account/users.md#close) at any time by downgrading to the Free package.
+
+## Related Topics
+
+- [Overview](https://ably.com/docs/platform/pricing.md): Understand the pricing models available to you, and understand the benefits of each package type.
+- [Billing](https://ably.com/docs/platform/pricing/billing.md): Understand how invoicing and billing works for Ably packages.
+- [Limits](https://ably.com/docs/platform/pricing/limits.md): The limits associated with each Ably package.
+
+## Documentation Index
+
+To discover additional Ably documentation:
+
+1. Fetch [llms.txt](https://ably.com/llms.txt) for the canonical list of available pages.
+2. Identify relevant URLs from that index.
+3. Fetch target pages as needed.
+
+Avoid using assumed or outdated documentation paths.

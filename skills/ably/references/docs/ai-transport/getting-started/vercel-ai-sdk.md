@@ -1,0 +1,312 @@
+# Get started with Vercel AI SDK
+
+Build a streaming AI chat application using Vercel AI SDK and Ably AI Transport. By the end, you'll have a chat app with durable sessions that survive disconnections and work across multiple tabs.
+
+## Prerequisites 
+
+- Node.js 20+
+- An [Ably account](https://ably.com/sign-up) with an API key
+- An Anthropic API key (or OpenAI - adapt the model config)
+
+## Install dependencies 
+
+<Code>
+
+### Shell
+
+```
+npm install @ably/ai-transport ably ai @ai-sdk/react @ai-sdk/anthropic next react react-dom jsonwebtoken
+```
+</Code>
+
+## Set up environment variables 
+
+Create `.env.local`:
+
+<Code>
+
+### Shell
+
+```
+ABLY_API_KEY=your-ably-api-key
+ANTHROPIC_API_KEY=your-anthropic-api-key
+```
+</Code>
+
+## Step 1: Create an Ably token endpoint 
+
+Create the file `app/api/auth/ably-token/route.ts`. This endpoint issues JWT tokens for client authentication. The token contains the client's identity and channel permissions.
+
+<Code>
+
+### Javascript
+
+```
+import jwt from 'jsonwebtoken'
+import { NextResponse } from 'next/server'
+
+export async function GET(req) {
+  const apiKey = process.env.ABLY_API_KEY
+  const [keyName, keySecret] = apiKey.split(':')
+
+  const url = new URL(req.url)
+  const clientId = url.searchParams.get('clientId') ?? `user-${crypto.randomUUID().slice(0, 8)}`
+
+  const token = jwt.sign(
+    {
+      'x-ably-clientId': clientId,
+      'x-ably-capability': JSON.stringify({ '*': ['publish', 'subscribe', 'history'] }),
+    },
+    keySecret,
+    { algorithm: 'HS256', keyid: keyName, expiresIn: '1h' },
+  )
+
+  return new NextResponse(token, {
+    headers: { 'Content-Type': 'application/jwt' },
+  })
+}
+```
+</Code>
+
+## Step 2: Create an Ably provider 
+
+Create the file `app/providers.tsx`. Wrap your app with the Ably provider. It creates an authenticated Ably client using the token endpoint.
+
+<Code>
+
+### Javascript
+
+```
+'use client'
+
+import { useEffect, useState } from 'react'
+import * as Ably from 'ably'
+import { AblyProvider } from 'ably/react'
+
+export function Providers({ clientId, children }) {
+  const [client, setClient] = useState(null)
+
+  useEffect(() => {
+    const ably = new Ably.Realtime({
+      authCallback: async (_tokenParams, callback) => {
+        try {
+          const response = await fetch(`/api/auth/ably-token?clientId=${encodeURIComponent(clientId ?? '')}`)
+          const jwt = await response.text()
+          callback(null, jwt)
+        } catch (err) {
+          callback(err instanceof Error ? err.message : String(err), null)
+        }
+      },
+    })
+    setClient(ably)
+    return () => ably.close()
+  }, [clientId])
+
+  if (!client) return null
+  return <AblyProvider client={client}>{children}</AblyProvider>
+}
+```
+</Code>
+
+## Step 3: Create the server API route 
+
+Create the file `app/api/chat/route.ts`. The server handles user messages, invokes the LLM, and streams the response through an Ably channel. The HTTP response returns immediately - tokens flow through the durable session.
+
+<Code>
+
+### Javascript
+
+```
+import { after } from 'next/server'
+import { streamText, convertToModelMessages } from 'ai'
+import { anthropic } from '@ai-sdk/anthropic'
+import Ably from 'ably'
+import { createServerTransport } from '@ably/ai-transport/vercel'
+
+const ably = new Ably.Realtime({ key: process.env.ABLY_API_KEY })
+
+export async function POST(req) {
+  const { messages, history, id, turnId, clientId, forkOf, parent } = await req.json()
+  const channel = ably.channels.get(id)
+
+  const transport = createServerTransport({ channel })
+  const turn = transport.newTurn({ turnId, clientId, parent, forkOf })
+
+  await turn.start()
+
+  if (messages.length > 0) {
+    await turn.addMessages(messages, { clientId })
+  }
+
+  const allMessages = [...(history ?? []).map((h) => h.message), ...messages.map((m) => m.message)]
+
+  const result = streamText({
+    model: anthropic('claude-sonnet-4-20250514'),
+    system: 'You are a helpful assistant.',
+    messages: await convertToModelMessages(allMessages),
+    abortSignal: turn.abortSignal,
+  })
+
+  after(async () => {
+    const { reason } = await turn.streamResponse(result.toUIMessageStream())
+    await turn.end(reason)
+    transport.close()
+  })
+
+  return new Response(null, { status: 200 })
+}
+```
+</Code>
+
+<Aside data-type='note'>
+`after()` is a Next.js function that extends the serverless function's lifetime beyond the HTTP response. This is what decouples the response stream from the HTTP request.
+</Aside>
+
+## Step 4: Create the chat component 
+
+Create the file `app/chat.tsx`. The client uses Vercel's `useChat` hook with an AI Transport adapter. The transport subscribes to the Ably channel and syncs messages across all connected clients.
+
+<Code>
+
+### Javascript
+
+```
+'use client'
+
+import { useChat } from '@ai-sdk/react'
+import { useClientTransport, useActiveTurns, useView } from '@ably/ai-transport/react'
+import { useChatTransport, useMessageSync } from '@ably/ai-transport/vercel/react'
+import { useState } from 'react'
+
+export function Chat({ chatId }) {
+  const [input, setInput] = useState('')
+
+  const transport = useClientTransport({ channelName: chatId })
+  const chatTransport = useChatTransport(transport)
+  const { messages, setMessages, sendMessage, stop } = useChat({
+    id: chatId,
+    transport: chatTransport,
+  })
+
+  useMessageSync(transport, setMessages)
+  useView({ transport, limit: 30 })
+
+  const activeTurns = useActiveTurns({ transport })
+  const isStreaming = activeTurns.size > 0
+
+  return (
+    <div>
+      {messages.map((msg) => (
+        <div key={msg.id}>
+          <strong>{msg.role}:</strong>{' '}
+          {msg.parts.map((part, i) =>
+            part.type === 'text' ? <span key={i}>{part.text}</span> : null
+          )}
+        </div>
+      ))}
+      <form onSubmit={(e) => {
+        e.preventDefault()
+        sendMessage({ text: input })
+        setInput('')
+      }}>
+        <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Type a message..." />
+        {isStreaming ? (
+          <button type="button" onClick={stop}>Stop</button>
+        ) : (
+          <button type="submit">Send</button>
+        )}
+      </form>
+    </div>
+  )
+}
+```
+</Code>
+
+## Step 5: Wire it together 
+
+Create the file `app/page.tsx`:
+
+<Code>
+
+### Javascript
+
+```
+import { Providers } from './providers'
+import { TransportProvider } from '@ably/ai-transport/react'
+import { UIMessageCodec } from '@ably/ai-transport/vercel'
+import { Chat } from './chat'
+
+export default function Page() {
+  const chatId = 'my-chat-session'
+  return (
+    <Providers>
+      <TransportProvider channelName={chatId} codec={UIMessageCodec}>
+        <Chat chatId={chatId} />
+      </TransportProvider>
+    </Providers>
+  )
+}
+```
+</Code>
+
+Run `npm run dev` and open `http://localhost:3000`. Open a second tab to the same URL - both tabs share the same durable session.
+
+## What's happening 
+
+1. The client sends the user message via HTTP POST to your API route.
+2. The server publishes the message to the Ably channel, invokes the LLM, and streams tokens to the channel.
+3. Every client subscribed to the channel receives tokens in realtime.
+4. If a client disconnects, it automatically reconnects and resumes from where it left off.
+
+This is a [durable session](https://ably.com/docs/ai-transport/why.md#durable-sessions). The HTTP request triggers the agent, but all communication flows through the Ably channel.
+
+## Understand the architecture 
+
+Vercel AI SDK handles intelligence and UI. AI Transport handles what happens between the model and every device. See the [Vercel AI SDK framework guide](https://ably.com/docs/ai-transport/framework-guides/vercel-ai-sdk.md) for a deeper explanation of how the two SDKs fit together.
+
+Vercel built the `ChatTransport` interface as the extension point for custom transports. AI Transport implements `ChatTransport`, so you swap the transport layer without changing your application code:
+
+<Code>
+
+### Javascript
+
+```
+// Before: default HTTP transport
+const { messages } = useChat()
+
+// After: Ably transport (everything else stays the same)
+const transport = useClientTransport({ channelName: chatId })
+const chatTransport = useChatTransport(transport)
+const { messages } = useChat({ transport: chatTransport })
+```
+</Code>
+
+### Choose an integration path 
+
+Both paths use the same server code. The difference is client-side only.
+
+The `useChat` path is the simplest. `useChatTransport` wraps the core transport for direct use with Vercel's `useChat` hook. `useMessageSync` pushes other clients' messages into `useChat` state. You get Vercel's message management with AI Transport's durable delivery. Use this path when you want the standard Vercel `useChat` developer experience with durable sessions added. This is the path the tutorial above follows.
+
+The [Core SDK](https://ably.com/docs/ai-transport/getting-started/core-sdk.md) path uses AI Transport's React hooks (`useView`, `useSend`, `useRegenerate`, `useEdit`) directly instead of `useChat`. This gives you full access to the conversation tree, branch navigation, split-pane views, and custom message construction. Use this path when you need branching UI, custom message rendering, or direct control over the conversation tree.
+
+## Explore next 
+
+- [Vercel AI SDK framework guide](https://ably.com/docs/ai-transport/framework-guides/vercel-ai-sdk.md): understand how Vercel AI SDK and AI Transport fit together and what capabilities the integration unlocks.
+- [Cancellation](https://ably.com/docs/ai-transport/features/cancellation.md): the Stop button already works because `useChat`'s `stop()` calls `transport.cancel()`.
+- [Multi-device sessions](https://ably.com/docs/ai-transport/features/multi-device.md): open another tab to see real-time sync.
+- [History and replay](https://ably.com/docs/ai-transport/features/history.md): `useView` already loads history on mount.
+- [Sessions](https://ably.com/docs/ai-transport/concepts/sessions.md): understand durable sessions and how the conversation persists.
+
+## Related Topics
+
+- [Core SDK](https://ably.com/docs/ai-transport/getting-started/core-sdk.md): Build a streaming AI chat app using AI Transport's core React hooks. Full access to the conversation tree, branching, and pagination.
+
+## Documentation Index
+
+To discover additional Ably documentation:
+
+1. Fetch [llms.txt](https://ably.com/llms.txt) for the canonical list of available pages.
+2. Identify relevant URLs from that index.
+3. Fetch target pages as needed.
+
+Avoid using assumed or outdated documentation paths.

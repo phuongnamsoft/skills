@@ -1,0 +1,259 @@
+# Debugging
+
+Errors can occur in various scenarios when using Ably, such as invalid inputs in requests, authentication issues, or connection problems caused by network disruptions. Proper debugging is essential for building a reliable application and troubleshooting.
+
+You can debug issues in your Ably-supported app using the following:
+
+* Set up a custom log handler to capture and manage errors in a way that suits your requirements.
+* Meta channels allow you to monitor errors that might not otherwise be visible to clients, providing additional insights into issues.
+* The [Dev console](https://ably.com/accounts/any/apps/any/console) in your Ably dashboard is a quick and easy way to inspect errors and events, especially during development or debugging.
+
+## Monitoring best practices 
+
+### Use SDK mechanisms for error detection
+
+Ably SDKs provide built-in mechanisms to notify you when errors occur:
+
+* Connection state changes - The connection will emit events when it changes state. If it enters the `disconnected` or `failed` state, the state change will include a `reason` explaining why. In the `disconnected` state, it will automatically retry after 15 seconds.
+* Channel state changes - Channel state works similarly, with different states and automatic retry behavior.
+* Client library logs - ERROR level logs can be accessed programmatically using a custom log handler.
+
+### Avoid monitoring HTTP status codes
+
+Strongly recommended against monitoring HTTP status codes of individual requests to detect problems. An HTTP request with a non-2xx response does not necessarily indicate a problem.
+
+There are many possible reasons individual HTTP requests may return error status codes, especially with imperfect network connections, and only a small fraction represent actual problems. For example:
+
+* When a token expires and cannot complete online reauth in time, a comet receive stream will close with a 401 status code and error code 40142. This is expected behavior that triggers the library to obtain a new token and resume the connection.
+* Many actual problems won't show up as non-2xx HTTP requests (e.g., errors sent as protocol messages down a WebSocket).
+
+The Ably protocol was designed to use semantically appropriate status codes for each response, rather than avoiding non-2xx responses except for genuine unexpected conditions.
+
+Recommended approach: Use the built-in SDK mechanisms, particularly [connection state changes](https://ably.com/docs/connect/states.md#listen) and [channel state changes](https://ably.com/docs/channels/states.md#listen), for reliable error detection and monitoring.
+
+## SSL certificate issues 
+
+### Common SSL certificate errors
+
+If you encounter SSL certificate errors when connecting to Ably, you may see errors such as:
+
+```
+cURL error: SSL certificate problem: self signed certificate in certificate chain
+SSL_connect returned=1 errno=0 state=SSLv3 read server certificate B: certificate verify failed
+SSL: CERTIFICATE_VERIFY_FAILED certificate verify failed: unable to get local issuer certificate
+```
+
+These errors are usually caused by out-of-date root certificates on your server or local machine.
+
+### Root cause
+
+SSL certificate verification failures typically occur when:
+
+- Your system's root certificate authority (CA) certificates are outdated
+- The certificate chain cannot be properly verified
+- Your system lacks the necessary intermediate certificates
+
+### Solutions
+
+#### Update root certificates
+
+The most common solution is to update your system's root certificates:
+
+On Ubuntu/Debian:
+```bash
+sudo apt-get update && sudo apt-get install ca-certificates
+```
+
+On CentOS/RHEL:
+```bash
+sudo yum update ca-certificates
+```
+
+On macOS:
+```bash
+brew install ca-certificates
+# Or update existing:
+brew upgrade ca-certificates
+```
+
+On Windows:
+Windows typically updates root certificates through Windows Update. Ensure your system is up to date.
+
+#### Language-specific solutions
+
+Different programming languages may require additional steps:
+
+PHP: Update your `curl.cainfo` setting in `php.ini` or download the latest CA bundle from curl.se
+
+Ruby: Update your Ruby installation or use the `certified` gem to ensure proper certificate verification
+
+Node.js: Update Node.js to the latest version, which includes updated root certificates
+
+Python: Update the `certifi` package which provides Mozilla's root certificates
+
+#### Alternative approaches
+
+If updating root certificates doesn't resolve the issue:
+
+1. Check your firewall/proxy: Corporate networks may intercept SSL connections
+2. Verify system time: Ensure your system clock is accurate, as certificate validation depends on correct time
+3. Test with curl: Use `curl -I https://rest.ably.io` to test SSL connectivity directly
+
+<Aside data-type="important">
+Avoid disabling SSL certificate verification as a workaround, as this compromises the security of your connection to Ably.
+</Aside>
+
+If you continue experiencing SSL certificate issues after trying these solutions, [contact Ably support](https://ably.com/support) with details about your platform, programming language, and the specific error messages you're seeing.
+
+## Error info 
+
+All errors returned by Ably are standardized and use the [`ErrorInfo`](https://ably.com/docs/api/rest-sdk/types.md#error-info) object:
+
+<Code>
+
+### Json
+
+```
+{
+  "code": 40005,
+  "statusCode": 400,
+  "cause": "Authentication",
+  "nonfatal": false,
+  "href": "https://help.ably.io/error/40005"
+}
+```
+</Code>
+
+The following explains each property of an `ErrorInfo` object:
+
+* `code` := Ably-specific numeric code indicating the error type.
+* `statusCode` := An HTTP status code providing broader context, such as 400 for a bad request.
+* `cause` := A brief description of the issue.
+* `nonfatal` := A boolean indicating whether the error is critical.
+* `href` := A direct link to Ably's documentation or for quick troubleshooting references.
+
+## Logging 
+
+Ably SDKs allow you to customize the function that handles logging. This function is usually set in the options when configuring a client, such as the `ClientOptions` object for Pub/Sub.
+
+Two separate properties can be set:
+
+* `logHandler` := Provides a custom function for each line of log output.
+* `logLevel` := The verbosity of the logging output, from silent to trace. In some SDKs this is numeric, and in others string.
+
+The following table explains the `logLevel` setting for the Ably client, which controls how much logging output is shown. Higher levels include more detailed information:
+
+| Level | Description |
+| ----- | ----------- |
+| `0` | No logs |
+| `1` | Errors only |
+| `2` | Errors plus connection and channel state changes |
+| `3` | Abbreviated debug output |
+| `4` | Full debug output |
+
+The following example configures the Ably client to log only error messages using `logLevel:1` and processes them with the function `logWriteFun()`:
+
+<Code>
+
+### Javascript
+
+```
+const ablyClient = new Ably.Realtime({
+  key: your-api-key,
+  logHandler: logWriteFunc,
+  logLevel: 1 // Errors only
+});
+```
+</Code>
+
+The following example is a log output for an Ably client configured to log messages using `logLevel:1`:
+
+<Code>
+
+### Text
+
+```
+LOG [Level 1]: Ably: ConnectionManager.failQueuedMessages(): failing 1 queued messages, err = [_ErrorInfo: Application Ptz0jg disabled.
+(See https://help.ably.io/error/40300 for help.); statusCode=403; code=40300]
+```
+</Code>
+
+## Metachannels 
+
+Ably provides a set of [metachannels](https://ably.com/docs/metadata-stats/metadata/subscribe.md#metachannels) that expose internal events from the Ably system. These metachannels are be useful for debugging and monitoring, especially when investigating issues not surfaced directly to clients.
+
+<Aside data-type='note'>
+Errors returned directly to clients are not published to metachannels. For example, if a client publishes a message but exceeds a channel rate limit, the `publish()` method uses an error callback to notify the client.
+</Aside>
+
+There are two metachannels related to [logging:](https://ably.com/docs/metadata-stats/metadata/subscribe.md#log)
+
+* `[meta]log` := Publishes errors that aren't visible to clients, except those related to push notifications.
+* `[meta]log:push` := Similar to `[meta]log`, but only publishes errors related to the delivery of push notifications.
+
+The following example subscribes to the `[meta]log` channel:
+
+<Code>
+
+### Javascript
+
+```
+const channel = realtime.channels.get('[meta]log');
+channel.subscribe((msg) => {
+  console.log(msg);
+});
+```
+</Code>
+
+The following is an example event published to the `[meta]log` channel as an [`ErrorInfo`](#format) object:
+
+<Code>
+
+### Json
+
+```
+{
+  "code": 40005,
+  "statusCode": 400,
+  "cause": "Authentication",
+  "nonfatal": false,
+  "href": "https://help.ably.io/error/40005"
+}
+```
+</Code>
+
+## Dev console 
+
+The [Dev console](https://ably.com/accounts/any/apps/any/console) in your Ably dashboard is a quick and easy way to inspect errors. It provides a live stream of all events in your application, which is especially useful during early-stage development or low-traffic periods when events are easier to track:
+
+* Monitor all live events in your application for detailed insights.
+* Test publishing and subscribing to channels to identify and resolve issues with these functions.
+
+<Aside data-type='note'>
+The Dev console displays a realtime feed of events. It does not store historical data, so you won't be able to query past events after an error has occurred.
+</Aside>
+
+## Support tickets 
+
+If the debugging tools provided didn't resolve your issue then contact [Ably support](https://ably.com/support). Provide the [requested information](https://ably.com/docs/platform/support.md#info) so that Ably can help to resolve your issue as quickly as possible.
+
+### Generating a HAR file
+
+When troubleshooting browser-based issues, support may request a [HAR file](https://toolbox.googleapps.com/apps/har_analyzer/). This file is a log of network requests generated while the issue occurs.
+
+HAR files contain sensitive data including cookies, page content, and any information submitted during recording (passwords, personal details, etc.). Review and sanitize before sharing.
+
+## Related Topics
+
+- [Support tickets](https://ably.com/docs/platform/support.md): Learn more about Ably's AI Transport and the features that enable you to quickly build functionality into new and existing applications.
+- [Error codes](https://ably.com/docs/platform/errors/codes.md): Understand Ably error codes and their causes, to resolve them efficiently.
+
+## Documentation Index
+
+To discover additional Ably documentation:
+
+1. Fetch [llms.txt](https://ably.com/llms.txt) for the canonical list of available pages.
+2. Identify relevant URLs from that index.
+3. Fetch target pages as needed.
+
+Avoid using assumed or outdated documentation paths.

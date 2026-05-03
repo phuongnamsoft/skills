@@ -1,0 +1,90 @@
+# llms.txt
+
+The `llms.txt` file is a machine-readable index of all Ably documentation pages, designed to help LLMs and AI assistants discover and navigate the documentation.
+
+## What is llms.txt?
+
+The `llms.txt` file follows the [llms.txt specification](https://llmstxt.org/), providing a structured list of all documentation pages with their titles and descriptions. This makes it easy for AI assistants to understand what documentation is available and find relevant pages for your questions.
+
+## How to access
+
+The file is available at:
+
+<Code>
+
+### Text
+
+```
+https://ably.com/llms.txt
+```
+</Code>
+
+You can point your AI assistant to this URL when you need help finding documentation on a specific topic.
+
+## File structure
+
+The `llms.txt` file organizes documentation into categories:
+
+### Platform
+Core platform documentation including account management, architecture, pricing, integrations, and the Control API.
+
+### Pub/Sub
+Documentation for Ably's core realtime messaging capabilities: channels, messages, presence, authentication, connections, and protocols.
+
+### AI Transport
+Documentation for Ably's AI Transport product covering token streaming, sessions and identity, messaging features such as human-in-the-loop and tool calls, and getting started guides for OpenAI, Anthropic, Vercel AI SDK, and LangGraph.
+
+### Chat
+The Ably Chat product documentation covering rooms, messages, reactions, typing indicators, and moderation features.
+
+### Spaces
+Multiplayer collaboration features including live cursors, avatar stacks, member locations, and component locking.
+
+### LiveObjects
+Shared state management for building collaborative applications with synchronized data.
+
+### LiveSync
+Database synchronization documentation for MongoDB and PostgreSQL integrations.
+
+## Entry format
+
+Each entry in the file follows this format:
+
+<Code>
+
+### Text
+
+```
+- [Page Title](URL): Description of the page content
+```
+</Code>
+
+For pages with multiple language variants, additional entries are included with the language specified:
+
+<Code>
+
+### Text
+
+```
+- [Page Title (JavaScript)](URL?lang=javascript): Description
+- [Page Title (Python)](URL?lang=python): Description
+```
+</Code>
+
+## Auto-generated
+
+The `llms.txt` file is automatically generated at build time from all documentation pages. It stays up-to-date with the latest documentation structure and content.
+
+## Related Topics
+
+- [Building with LLMs](https://ably.com/docs/platform/ai-llms.md): Learn how to use LLMs to build with Ably documentation. Access markdown versions of docs and use our LLM-optimized resources.
+
+## Documentation Index
+
+To discover additional Ably documentation:
+
+1. Fetch [llms.txt](https://ably.com/llms.txt) for the canonical list of available pages.
+2. Identify relevant URLs from that index.
+3. Fetch target pages as needed.
+
+Avoid using assumed or outdated documentation paths.

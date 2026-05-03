@@ -1,0 +1,122 @@
+# Pusher Adapter
+
+Ably enables migration from Pusher to Ably using its Pusher Adapter. The protocol adapter handles all background translation and only requires an API key change.
+
+Using an adapter introduces some latency and is slower than using an Ably SDK, however the impact is typically 1-10ms. It will also be slightly slower than using Pusher natively, but only if you are close to whichever Pusher data center used. If you aren't close to the Pusher data center you've chosen, then the extra latency from using the adapter should be more than compensated for by being able to use a data center that is close to you. This is because Ably automatically connects clients to the data center closest to them.
+
+The Pusher Adapter provides some of the advantages of Ably, such as inter-regional message federation, however others, such as [continuity guarantees](https://ably.com/four-pillars-of-dependability), fallback host support, and [message history](https://ably.com/docs/storage-history/history.md) are only available when using an Ably SDK. If an [Ably SDK](https://ably.com/docs/sdks.md) is available in your chosen platform, it is recommended you use that, or plan to transition to it eventually.
+
+<Aside data-type='usp'>
+Automatic routing to the closest datacenter.
+
+Ably automatically connects clients to the closest datacenter using [latency-based DNS routing](https://ably.com/docs/platform/architecture/edge-network.md#dns-organization-and-latency-based-routing), compensating for any protocol adapter overhead with optimal network proximity.
+</Aside>
+
+## Supported features 
+
+The following Pusher features are supported using the adapter:
+
+* Realtime subscribe
+* Realtime presence
+* Realtime publish
+* REST publish
+* REST get occupied channels
+* REST get presence set
+* REST get user count
+
+## Enable the Pusher Adapter 
+
+The Pusher protocol is not supported by default in Ably apps. This is due to security reasons associated with the use of public channels.
+
+<Aside data-type='important'>
+Normally, it is not possible to connect to Ably without a complete API key, or a [token](https://ably.com/docs/auth/token.md) derived from one. When the Pusher Adapter is enabled, you can connect to Pusher public channels with only the Ably API [key name](https://ably.com/docs/auth.md#format). The key name is a combination of the app ID and the key ID.
+</Aside>
+
+To enable the Pusher Adapter in an app:
+
+1. Log into your Ably [dashboard](https://ably.com/dashboard) and create or select the app you're using.
+2. Click the **Settings** tab.
+3. Check the box for **Pusher protocol support** under **Protocol Adapter Settings**.
+4. Click **Save settings**.
+
+Once you save the settings, you will be offered the choice for Ably to create a set of namespaces for you. These are required to provide interoperability with Pusher client libraries:
+
+* Pusher public channels will use the `public:` namespace.
+* Pusher private channels will use the `private:` namespace.
+* Pusher presence channels will use the `presence:` namespace.
+
+All namespaces must also have the **Require identification** [rule](https://ably.com/docs/channels.md#rules) disabled, as Pusher clients are never identified in the context of Ably. If you are receiving error code `40160` then **Require identification** is enabled.
+
+## Configure a Pusher SDK 
+
+Initialize your Pusher SDK to connect to Ably. All of Pusher's SDKs are supported, and need to be configured similar to the following:
+
+<Code>
+
+### Javascript
+
+```
+const pusher = new Pusher('appId.keyId', {
+  wsHost: 'main.pusher.ably.net',
+  httpHost: 'main.pusher.ably.net',
+  disableStats: true,
+  forceTls: true,
+  cluster: 'eu'
+});
+```
+</Code>
+
+<Aside data-type='note'>
+You should only use your [Ably API key name](https://ably.com/docs/auth.md#format), not the full API key. This includes everything before the colon `:` in your API key.
+</Aside>
+
+| Option | Description |
+|--------|-------------|
+| wsHost | Set the Websocket host to point to Ably. |
+| httpHost | Set the HTTP requests host to point to Ably. |
+| disableStats | Disable the collection of stats in Pusher. |
+| forceTls | Force the connection to use TLS. This isn't required but strongly recommended by Ably to avoid sending private keys over a plain text connection. |
+| cluster | Set this to any value as it is required by Pusher. It has no impact on the Ably Pusher endpoint as Ably will use the closest data center available to the client. |
+
+You can also add any other Pusher options that you normally use.
+
+## Channel mapping 
+
+Ably and Pusher have different naming restrictions for channel names, and use namespaces differently.
+
+Channel names are mapped when using the adapter as follows:
+
+* Pusher public channels will use the `public:` namespace.
+* Pusher private channels will use the `private:` namespace.
+* Pusher presence channels will use the `presence:` namespace.
+* Channels not in any of the above namespaces were receive a `private-ablyroot-` prefix.
+
+Colons are not permitted in Pusher channel names, but are used as namespace separators in Ably. Because of this, the adapter maps semicolons to colons in Ably channel names and colons to semicolons in Pusher channel names. This means that you will be unable to access any Ably channels with semicolons in their name.
+
+The following are some example channel name mappings:
+
+| Pusher Adapter channel | Ably channel |
+|------------------------|--------------|
+| presence-foo | presence:foo |
+| private-foo | private:foo |
+| foo | public:foo |
+| foo;bar | public:foo:bar |
+| private-ablyroot-foo | foo |
+| private-ablyroot-foo;bar | foo:bar |
+
+## Related Topics
+
+- [Overview](https://ably.com/docs/protocols.md): Clients can use the Ably network protocol adapters. This is especially useful where an Ably SDK is not available for your language of choice, or where platform resource constraints prohibit use of an SDK.
+- [Server-Sent Events (SSE)](https://ably.com/docs/protocols/sse.md): Ably provides support for Server-Sent Events (SSE). This is useful for where browser clients support SSE, and the use case does not require or support the resources used by an Ably SDK.
+- [MQTT](https://ably.com/docs/protocols/mqtt.md): Any MQTT-enabled client can communicate with the Ably service through the Ably MQTT protocol adapter. This is especially useful where an Ably SDK is not available for your language of choice.
+- [PubNub Adapter](https://ably.com/docs/protocols/pubnub.md): Use the PubNub Adapter to migrate from PubNub to Ably by only changing your API key.
+
+## Documentation Index
+
+To discover additional Ably documentation:
+
+1. Fetch [llms.txt](https://ably.com/llms.txt) for the canonical list of available pages.
+2. Identify relevant URLs from that index.
+3. Fetch target pages as needed.
+
+Avoid using assumed or outdated documentation paths.

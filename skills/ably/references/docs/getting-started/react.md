@@ -1,0 +1,735 @@
+# Getting started: Pub/Sub with React
+
+This guide will get you started with Ably Pub/Sub in a new React application built with Vite.
+
+You'll establish a realtime connection to Ably and learn to publish and subscribe to messages. You'll also implement presence to track other online clients, and learn how to retrieve message history.
+
+![Screenshot of the completed React Pub/Sub application showing a web interface with connection status, a message input field, realtime message display, and a presence indicator showing online users. The interface demonstrates the key features you'll build including publishing messages, subscribing to receive messages in realtime, and tracking which clients are currently present in the channel.](https://raw.githubusercontent.com/ably/docs/main/src/images/content/screenshots/getting-started/pub-sub-react-getting-started-guide.png)
+
+<Aside data-type='note'>
+Using an AI coding assistant? [Teach it Ably](https://ably.com/docs/platform/ai-llms.md#agent-skills) with Agent Skills for all popular AI coding agents. Run `claude plugin add ably/agent-skills` or `npx skills add ably/agent-skills` to get started.
+</Aside>
+
+## Prerequisites 
+
+1. [Sign up](https://ably.com/signup) for an Ably account.
+2. Create a [new app](https://ably.com/accounts/any/apps/new), and create your first API key in the **API Keys** tab of the dashboard.
+3. Your API key will need the `publish`, `subscribe`, `presence` and `history` capabilities.
+
+### Create a React project 
+
+Create a new React + TypeScript project using [Vite](https://vitejs.dev/guide/#scaffolding-your-first-vite-project). Then, navigate to the project folder and install the dependencies:
+
+<Code>
+
+#### Shell
+
+```
+npm create vite@latest ably-pubsub-react -- --template react-ts
+
+│
+◇  Scaffolding project in /ably-pubsub-react...
+│
+└  Done. Now run:
+
+  cd ably-pubsub-react
+  npm install
+```
+</Code>
+
+You will also need to setup [Tailwind CSS](https://tailwindcss.com/docs/installation/using-vite) for styling the application.
+First, install the required Tailwind CSS packages:
+
+<Code>
+
+#### Shell
+
+```
+npm install tailwindcss @tailwindcss/vite
+```
+</Code>
+
+Next, update `vite.config.ts` file to include the Tailwind CSS plugin:
+
+<Code>
+
+#### React
+
+```
+// vite.config.ts
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
+
+// https://vite.dev/config/
+export default defineConfig({
+  plugins: [react(), tailwindcss()],
+});
+```
+</Code>
+
+Finally, import Tailwind CSS in the `src/index.css` file and remove all other existing CSS styles:
+
+<Code>
+
+#### Shell
+
+```
+/* src/index.css */
+@import 'tailwindcss';
+```
+</Code>
+
+And replace the contents of `src/App.tsx` with the following:
+
+<Code>
+
+#### React
+
+```
+// src/App.tsx
+function App() {
+  return (
+    <div className='flex flex-col w-[900px] h-full border-1 border-blue-500 rounded-lg overflow-hidden mx-auto font-sans'>
+      <div className='flex flex-row w-full rounded-lg overflow-hidden mx-auto font-sans'>
+        <div className='flex-1 bg-gray-100 text-center p-4'>
+          <h2 className='text-lg font-semibold text-blue-500'>
+            Ably Pub/Sub React
+          </h2>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default App;
+```
+</Code>
+
+### Install Ably Pub/Sub JavaScript SDK 
+
+Install the Ably Pub/Sub JavaScript SDK in your React project:
+
+<Code>
+
+#### Shell
+
+```
+npm install ably
+```
+</Code>
+
+### Set up AblyProvider 
+
+The Ably Pub/Sub SDK provides React hooks and context providers that make it easier to use Pub/Sub features in your React components.
+
+The `AblyProvider` component should be used at the top level of your application, typically in `main.tsx`. It provides access to the Ably Realtime client for all child components that use Ably Pub/Sub React hooks.
+
+<Aside data-type='note'>
+The `AblyProvider` is required when using the `useAbly()` and `useConnectionStateListener()` hooks, and the `ChannelProvider` exposed by the Ably Pub/Sub SDK.
+</Aside>
+
+Replace the contents of your `src/main.tsx` file with the following code to set up the `AblyProvider`:
+
+<Code>
+
+#### React
+
+```
+// src/main.tsx
+import * as Ably from 'ably';
+import { AblyProvider } from 'ably/react';
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import App from './App.tsx';
+import './index.css';
+
+// Create your Ably Realtime client
+const realtimeClient = new Ably.Realtime({
+  key: 'your-api-key',
+  clientId: 'my-first-client',
+});
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <AblyProvider client={realtimeClient}>
+      <App />
+    </AblyProvider>
+  </StrictMode>
+);
+```
+</Code>
+
+<Aside data-type='note'>
+Keep the Realtime client initialization outside of any React component to prevent it from being recreated on re-renders, which could result in reaching your Ably connection limit.
+</Aside>
+
+### (Optional) Install Ably CLI 
+
+Use the [Ably CLI](https://github.com/ably/cli) as an additional client to quickly test Pub/Sub features. It can simulate other clients by publishing messages, subscribing to channels, and managing presence states.
+
+1. Install the Ably CLI:
+
+<Code>
+
+#### Shell
+
+```
+npm install -g @ably/cli
+```
+</Code>
+
+2. Run the following to log in to your Ably account and set the default app and API key:
+
+<Code>
+
+#### Shell
+
+```
+ably login
+```
+</Code>
+
+<If loggedIn={false}>
+  <Aside data-type='note'>
+  The code examples in this guide include a demo API key. If you wish to interact with the Ably CLI and view outputs within your Ably account, ensure that you replace them with your own API key.
+  </Aside>
+</If>
+
+## Step 1: Connect to Ably 
+
+Clients establish a connection with Ably when they instantiate an SDK instance. This enables them to send and receive messages in realtime across channels.
+
+Open up the [dev console](https://ably.com/accounts/any/apps/any/console) of your first app before instantiating your client so that you can see what happens.
+
+In the [Set up AblyProvider](#prerequisites-setup-ably-provider) section, you added the following code to create an Ably Realtime client:
+
+<Code>
+
+### React
+
+```
+const realtimeClient = new Ably.Realtime({
+  key: 'your-api-key',
+  clientId: 'my-first-client',
+});
+```
+</Code>
+
+This code creates a new Realtime client instance, establishing a connection to Ably when your application starts. At the minimum you need to provide an authentication mechanism. While using an API key is fine for the purposes of this guide, you should use [token authentication](https://ably.com/docs/auth/token.md) in production environments. A [`clientId`](https://ably.com/docs/auth/identified-clients.md) ensures the client is identified, which is required to use certain features, such as presence.
+
+To monitor the Ably connection state within your application, create a component that uses the `useConnectionStateListener()` hook provided by the Ably Pub/Sub SDK. This hook must be nested inside an `AblyProvider`, so the component must be placed within the `AblyProvider` in your application.
+
+In your project, create a new file `src/ConnectionState.tsx` with the following content:
+
+<Code>
+
+### React
+
+```
+// src/ConnectionState.tsx
+
+// React hooks are exported from the 'ably/react' path of the 'ably' package.
+import { useAbly, useConnectionStateListener } from 'ably/react';
+import { useState } from 'react';
+
+export function ConnectionState() {
+  // This component displays the current connection state
+
+  // The useAbly hook returns the Ably Realtime client instance provided by the AblyProvider
+  const ably = useAbly();
+  const [connectionState, setConnectionState] = useState(ably.connection.state);
+
+  // useConnectionStateListener hook listens for changes in connection state
+  useConnectionStateListener((stateChange) => {
+    setConnectionState(stateChange.current);
+  });
+
+  return (
+    <div className='mt-4 text-center h-full'>
+      <p>Connection: {connectionState}!</p>
+    </div>
+  );
+}
+```
+</Code>
+
+Then, update your `App` component in the `src/App.tsx` file to include the `ConnectionState` component:
+
+<Code>
+
+### React
+
+```
+// src/App.tsx
+
+// Import your newly created component
+import { ConnectionState } from './ConnectionState';
+
+function App() {
+  return (
+    <div className='flex flex-col w-[900px] h-full border-1 border-blue-500 rounded-lg overflow-hidden mx-auto font-sans'>
+      <div className='flex flex-row w-full rounded-lg overflow-hidden mx-auto font-sans'>
+        <div className='flex-1 bg-gray-100 text-center p-4'>
+          <h2 className='text-lg font-semibold text-blue-500'>
+            Ably Pub/Sub React
+          </h2>
+          {/* Add ConnectionState here */}
+          <ConnectionState />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default App;
+```
+</Code>
+
+Now run your application by starting the development server:
+
+<Code>
+
+### Shell
+
+```
+npm run dev
+```
+</Code>
+
+Open the URL shown in the terminal (typically [http://localhost:5173/](http://localhost:5173/)).
+
+You should see the connection state displayed in your UI (e.g., `Connection: connected!`). You can also inspect connection events in the [dev console](https://ably.com/accounts/any/apps/any/console) of your app.
+
+## Step 2: Subscribe to a channel and publish a message 
+
+Messages contain the data that a client is communicating, such as a short 'hello' from a colleague, or a financial update being broadcast to subscribers from a server. Ably uses channels to separate messages into different topics, so that clients only ever receive messages on the channels they are subscribed to.
+
+### ChannelProvider 
+
+Now that you're connected to Ably, you can create and manage channels using the `ChannelProvider` component from the Ably Pub/Sub SDK. This component must be nested within the [`AblyProvider`](#prerequisites-setup-ably-provider) described above.
+
+<Aside data-type='note'>
+`ChannelProvider` is required when using feature hooks such as `useChannel()` or `usePresence()` exposed by the Ably Pub/Sub SDK.
+</Aside>
+
+Update your main `App` component to include the `ChannelProvider`:
+
+<Code>
+
+#### React
+
+```
+// src/App.tsx
+
+import { ChannelProvider } from 'ably/react';
+import { ConnectionState } from './ConnectionState';
+
+function App() {
+  return (
+    // Wrap components with ChannelProvider
+    <ChannelProvider channelName='my-first-channel'>
+      ...
+    </ChannelProvider>
+  );
+}
+
+export default App;
+```
+</Code>
+
+### Subscribe to a channel 
+
+Use the `useChannel()` hook within the `ChannelProvider` component to subscribe to incoming messages on a channel. This hook also provides access to a `channel` instance and a `publish` method for sending messages.
+
+In your project, create a new file called `src/Messages.tsx` and add new components called `Messages` and `MessageView`:
+
+<Code>
+
+#### React
+
+```
+// src/Messages.tsx
+
+import type { Message } from 'ably';
+import { useChannel } from 'ably/react';
+import { useState } from 'react';
+
+function MessageView({ message }: { message: Message }) {
+  // Displays an individual message
+  const isMine = message.clientId === 'my-first-client';
+  return (
+    <p
+      className={`py-1 px-2 shadow-sm ${
+        isMine ? 'bg-green-100 text-gray-800' : 'bg-blue-50 text-gray-800'
+      }`}
+    >
+      {message.data}
+    </p>
+  );
+}
+
+export function Messages() {
+  const [messages, setMessages] = useState<Message[]>([]);
+
+  // The useChannel hook subscribes to messages on the channel
+  useChannel('my-first-channel', (message) => {
+    setMessages((prevMessages) => [...prevMessages, message]);
+  });
+
+  return (
+    <div className='flex flex-col w-full h-[600px] item-left rounded-lg overflow-hidden mx-auto font-sans'>
+      <div className='flex-1 p-4 overflow-y-auto space-y-2'>
+        {messages.map((msg: Message) => (
+          <MessageView key={msg.id} message={msg} />
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+</Code>
+
+Next, update your main `App` component in the `src/App.tsx` file to include the `Messages` component within the `ChannelProvider`:
+
+<Code>
+
+#### React
+
+```
+// src/App.tsx
+
+import { ChannelProvider } from 'ably/react';
+import { ConnectionState } from './ConnectionState';
+import { Messages } from './Messages';
+
+function App() {
+  return (
+    <ChannelProvider channelName='my-first-channel'>
+      <div className='flex flex-col w-[900px] h-full border-1 border-blue-500 rounded-lg overflow-hidden mx-auto font-sans'>
+        ...
+        <div className='flex flex-1 flex-row justify-evenly'>
+          <div className='flex flex-col bg-white w-3/4 rounded-lg overflow-hidden mx-auto font-sans'>
+            {/* Your Messages component should go here */}
+            <Messages />
+          </div>
+        </div>
+      </div>
+    </ChannelProvider>
+  );
+}
+
+export default App;
+```
+</Code>
+
+You've successfully created a channel instance and set up a listener to receive messages. You can test this immediately by publishing messages using the Ably CLI:
+
+<Code>
+
+#### Shell
+
+```
+ably channels publish my-first-channel 'Hello from CLI!'
+```
+</Code>
+
+### Publish a message 
+
+You can publish messages in your React app using the `publish` method provided by the `useChannel()` hook.
+
+Update your `src/Messages.tsx` file to include message publishing:
+
+<Code>
+
+#### React
+
+```
+// src/Messages.tsx
+
+// existing message imports and MessageView function
+
+export function Messages() {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [inputValue, setInputValue] = useState('');
+
+  // useChannel hook also provides a publish method
+  const { publish } = useChannel('my-first-channel', (message) => {
+    setMessages((prevMessages) => [...prevMessages, message]);
+  });
+
+  // Function to handle publishing messages
+  const handlePublish = () => {
+    if (!inputValue.trim()) return;
+    publish('my-first-messages', inputValue.trim()).catch((err) =>
+      console.error('Error publishing message', err)
+    );
+    setInputValue('');
+  };
+
+  return (
+    <div className='flex flex-col w-full h-[600px] item-left rounded-lg overflow-hidden mx-auto font-sans'>
+      <div className='flex-1 p-4 overflow-y-auto space-y-2'>
+        {messages.map((msg: Message) => (
+          <MessageView key={msg.id} message={msg} />
+        ))}
+      </div>
+      <div className='flex items-center px-2 mt-auto mb-2'>
+        <input
+          type='text'
+          placeholder='Type your message...'
+          className='flex-1 p-2 border border-gray-400 rounded outline-none bg-white'
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              handlePublish();
+            }
+          }}
+        />
+        <button
+          className='bg-blue-500 text-white px-4 ml-2 h-10 flex items-center justify-center rounded hover:bg-blue-600 transition-colors'
+          onClick={handlePublish}
+        >
+          Publish
+        </button>
+      </div>
+    </div>
+  );
+}
+```
+</Code>
+
+Your application now supports publishing realtime messages! Type a message and click "Publish" to see it appear in your UI. Open another browser window to see clients interacting with each other in realtime or publish messages using the Ably CLI:
+
+<Code>
+
+#### Shell
+
+```
+ably channels publish my-first-channel 'Hello from CLI!'
+```
+</Code>
+
+Messages from the CLI will appear in your UI in a different color to the ones you sent from the app.
+
+## Step 3: Join the presence set 
+
+Presence enables clients to be aware of one another if they are present on the same channel. You can then show clients who else is online, provide a custom status update for each, and notify the channel when someone goes offline.
+
+Use the `usePresence()` and `usePresenceListener()` hooks provided by the Ably Pub/Sub SDK to interact with the presence feature in your React application. The `usePresence()` hook enables a client to join the presence set on a channel and update their presence status. The `usePresenceListener()` hook lets you subscribe to presence changes on a channel.
+
+The `usePresenceListener()` hook also returns an object containing the `presenceData` array, which holds current presence data on the channel.
+
+Create a new file called `src/PresenceStatus.tsx` with the following content:
+
+<Code>
+
+### React
+
+```
+// src/PresenceStatus.tsx
+
+// 'ably/react' exports hooks for working with presence on a channel
+import { usePresence, usePresenceListener } from 'ably/react';
+
+export function PresenceStatus() {
+  // Enter the current client into the presence set with an optional status
+  usePresence('my-first-channel', { status: "I'm here!" });
+
+  // Subscribe to presence updates on the channel
+  const { presenceData } = usePresenceListener('my-first-channel');
+
+  return (
+    <div className='flex flex-col bg-white w-full h-full px-4 py-2'>
+      <strong className='text-green-700 mr-4 text-center border-b border-gray-900'>
+        Present: {presenceData.length}
+      </strong>
+
+      <div className='flex-1 flex-col flex flex-nowrap items-start gap-4 overflow-x-auto'>
+        {presenceData.map((member, idx) => (
+          <div key={idx} className='flex items-center gap-1'>
+            <span className='inline-block w-2 h-2 rounded-full bg-green-500' />
+            <span className='text-gray-800'>
+              {member.clientId}
+              {member.data?.status ? ` (${member.data.status})` : ''}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+</Code>
+
+Add the `PresenceStatus` component to your main `App` component in `src/App.tsx` as follows:
+
+<Code>
+
+### React
+
+```
+// src/App.tsx
+
+// Existing imports
+import { PresenceStatus } from './PresenceStatus';
+
+function App() {
+  return (
+    <ChannelProvider channelName='my-first-channel'>
+      <div className='flex flex-col w-[900px] h-full border-1 border-blue-500 rounded-lg overflow-hidden mx-auto font-sans'>
+        <div className='flex flex-row w-full rounded-lg overflow-hidden mx-auto font-sans'>
+          <div className='flex-1 bg-gray-100 text-center p-4'>
+            <h2 className='text-lg font-semibold text-blue-500'>
+              Ably Pub/Sub React
+            </h2>
+            <ConnectionState />
+          </div>
+        </div>
+        <div className='flex flex-1 flex-row justify-evenly'>
+          <div className='flex flex-col w-1/4 border-r-1 border-blue-500 overflow-hidden mx-auto font-sans'>
+            <div className='flex-1 overflow-y-auto'>
+              {/* Your PresenceStatus component should go here */}
+              <PresenceStatus />
+            </div>
+          </div>
+
+          <div className='flex flex-col bg-white w-3/4 rounded-lg overflow-hidden mx-auto font-sans'>
+            <Messages />
+          </div>
+        </div>
+      </div>
+    </ChannelProvider>
+  );
+}
+
+export default App;
+```
+</Code>
+
+The application will now display a list of clients currently present on the channel. The `usePresence()` hook enters your client into the channel's presence set with an optional status, while the `usePresenceListener()` hook subscribes to presence updates. Your current client ID should appear in the list of online users.
+
+You can have another client join the presence set using the Ably CLI:
+
+<Code>
+
+### Shell
+
+```
+ably channels presence enter my-first-channel --data '{"status":"From CLI"}'
+```
+</Code>
+
+## Step 4: Retrieve message history 
+
+You can retrieve previously sent messages using the history feature. Ably stores all messages for 2 minutes by default in the event a client experiences network connectivity issues. You can [extend the storage period](https://ably.com/docs/storage-history/storage.md) of messages if required.
+
+Although the Ably Pub/Sub SDK does not provide a specific hook for retrieving message history, you can use the `useChannel()` hook to get a [`RealtimeChannel`](https://ably.com/docs/sdk/js/v2.0/interfaces/ably.RealtimeChannel.html) instance and then call its [`history()`](https://ably.com/docs/sdk/js/v2.0/interfaces/ably.RealtimeChannel.html#history) method to retrieve messages recently published to the channel.
+
+Update your `src/Messages.tsx` file to include the new `useEffect` within your existing `Messages` component:
+
+<Code>
+
+### React
+
+```
+// src/Messages.tsx
+
+// Existing imports
+import { useEffect, useState } from 'react';
+
+// MessageView function remains unchanged
+
+export function Messages() {
+  // useStates, useChannel, and handlePublish function remain unchanged
+
+  useEffect(() => {
+    async function loadHistory() {
+      try {
+        // Retrieve the last 5 messages from history
+        const history = await channel.history({ limit: 5 });
+        // History responses are returned in reverse chronological order (newest first)
+        // Reverse the array to show the latest messages at the bottom in the UI
+        const messagesFromHistory = history.items.reverse();
+        // Update the state with retrieved messages
+        setMessages(messagesFromHistory);
+      } catch (error) {
+        console.error('Error loading message history:', error);
+      }
+    }
+
+    loadHistory();
+  }, [channel]);
+
+  // Return remains unchanged
+}
+```
+</Code>
+
+Test this feature with the following steps:
+
+1. Publish several messages using your application UI, or send messages from another client using the Ably CLI:
+
+<Code>
+
+### Shell
+
+```
+ably channels publish --count 5 my-first-channel "Message number {{.Count}}"
+```
+</Code>
+
+2. Refresh the page. This will cause the `Messages` component to mount again and call the `channel.history()` method.
+3. You should see the last 5 messages displayed in your UI, ordered from oldest to newest at the bottom:
+
+<Code>
+
+### Json
+
+```
+Message number 1
+Message number 2
+Message number 3
+Message number 4
+Message number 5
+```
+</Code>
+
+## Next steps 
+
+Continue to explore the documentation with React as the selected language:
+
+* Understand [token authentication](https://ably.com/docs/auth/token.md) before going to production.
+* Understand how to effectively [manage connections](https://ably.com/docs/connect.md#close?lang=react).
+* Explore more [advanced](https://ably.com/docs/pub-sub/advanced.md) Pub/Sub concepts.
+
+You can also explore the [Ably CLI](https://www.npmjs.com/package/@ably/cli) further, or visit the Pub/Sub [API references](https://ably.com/docs/api/realtime-sdk.md).
+
+## Related Topics
+
+- [Overview](https://ably.com/docs/getting-started.md): Getting started with Ably Pub/Sub in your language or framework of choice. Learn how to publish, subscribe, track presence, fetch message history, and manage realtime connections.
+- [JavaScript](https://ably.com/docs/getting-started/javascript.md): Get started with Pub/Sub in vanilla JavaScript using Ably. Learn how to publish, subscribe, track presence, fetch message history, and manage realtime connections.
+- [Node.js](https://ably.com/docs/getting-started/node.md): Get started with Pub/Sub in JavaScript using Ably. Learn how to publish, subscribe, track presence, fetch message history, and manage realtime connections.
+- [React Native](https://ably.com/docs/getting-started/react-native.md): A getting started guide for Ably Pub/Sub React Native that steps through some of the key features using React Native with Expo.
+- [Kotlin](https://ably.com/docs/getting-started/kotlin.md): Get started with Pub/Sub in Kotlin using Ably. Learn how to publish, subscribe, track presence, fetch message history, and manage realtime connections.
+- [Swift](https://ably.com/docs/getting-started/swift.md): Get started with Pub/Sub in Swift using Ably. Learn how to publish, subscribe, track presence, fetch message history, and manage realtime connections.
+- [Flutter](https://ably.com/docs/getting-started/flutter.md): A getting started guide for Ably Pub/Sub Flutter that steps through some of the key features using Flutter.
+- [Java](https://ably.com/docs/getting-started/java.md): A getting started guide for Ably Pub/Sub Java that steps through some of the key features using Java.
+- [Go](https://ably.com/docs/getting-started/go.md): Get started with Pub/Sub in Go using Ably. Learn how to publish, subscribe, track presence, fetch message history, and manage realtime connections.
+- [Python](https://ably.com/docs/getting-started/python.md): A getting started guide for Ably Pub/Sub Python that steps through some of the key features using Python.
+- [Ruby](https://ably.com/docs/getting-started/ruby.md): A getting started guide for Ably Pub/Sub Ruby that steps through some of the key features using Ruby.
+- [C# .NET](https://ably.com/docs/getting-started/dotnet.md): A getting started guide for Ably Pub/Sub C# .NET that steps through some of the key features using C# and .NET.
+- [Objective C](https://ably.com/docs/getting-started/objective-c.md): A getting started guide for Ably Pub/Sub Objective-C that steps through some of the key features using Objective-C.
+- [PHP](https://ably.com/docs/getting-started/php.md): A getting started guide for Ably Pub/Sub PHP that steps through some of the key features using PHP.
+- [Laravel](https://ably.com/docs/getting-started/laravel.md): A getting started guide for Ably Pub/Sub Laravel 12 that steps through some of the key features using Laravel.
+
+## Documentation Index
+
+To discover additional Ably documentation:
+
+1. Fetch [llms.txt](https://ably.com/llms.txt) for the canonical list of available pages.
+2. Identify relevant URLs from that index.
+3. Fetch target pages as needed.
+
+Avoid using assumed or outdated documentation paths.

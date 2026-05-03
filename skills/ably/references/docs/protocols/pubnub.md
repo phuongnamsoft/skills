@@ -1,0 +1,146 @@
+# PubNub Adapter
+
+Ably enables migration from PubNub to Ably using its PubNub Adapter. The protocol adapter handles all background translation and only requires an API key change.
+
+Using an adapter introduces some latency and is slower than using an Ably SDK. The PubNub adapter can have more variable latency than other adapters because PubNub's protocol is inherently long-polling based, which creates an impedance mismatch with Ably's WebSocket-based architecture. Some operations are quick with PubNub, but slower or impossible with Ably, and vice versa.
+
+Many of the advantages associated with using Ably, such as the use of WebSockets rather than long polling, [continuity guarantees](https://ably.com/four-pillars-of-dependability), and fallback host support are only available when using an Ably SDK. If an [Ably SDK](https://ably.com/docs/sdks.md) is available in your chosen platform, it is recommended you use that, or plan to transition to it eventually.
+
+You can use PuBNub and and an Ably SDK side-by-side as they are interoperable, with the exception of a few features.
+
+For a detailed comparison of Ably and PubNub features, see [Ably vs PubNub](https://ably.com/compare/ably-vs-pubnub).
+
+<Aside data-type='usp'>
+Automatic connection recovery and message continuity.
+
+Ably automatically [recovers connections](https://ably.com/docs/platform/architecture/connection-recovery.md) and delivers all missed messages when clients reconnect within two minutes, ensuring no data is lost during brief disconnections.
+</Aside>
+
+## Migration process 
+
+A typical migration from PubNub to Ably follows these steps:
+
+1. Change the host name for all of your PubNub client library integrations to use Ably's endpoints.
+
+2. Migrate one app at a time over to Ably SDKs. At this stage, some of your apps will be using PubNub client libraries and others will be using Ably's SDKs. Since the adapter translates the PubNub protocol, there's no interruption and interoperability between both protocols is maintained.
+
+3. Migrate all your apps and servers to use Ably SDKs and terminate your old contracts.
+
+
+## Supported features 
+
+The following PubNub features are supported using the adapter:
+
+* Publish
+* Subscribe
+* Presence
+* History
+* getState
+* setState
+* hereNow
+* Global hereNow
+
+The following PubNub features are not supported using the adapter:
+
+* PAM
+* whereNow
+* Channel groups
+* Backfill subscribes
+* Stream filters
+
+## Configure a PubNub SDK 
+
+Initialize your PubNub SDK to connect to Ably. All of PubNub's SDKs are supported.
+
+The following is an example of initializing the PubNub SDK:
+
+<Code>
+
+### Javascript
+
+```
+const apiKey = "ablyApiKey";
+const pubnub = PubNub({
+  subscribe_key: apiKey,
+  publish_key: apiKey,
+  origin: 'main.pubnub.ably.net',
+  ssl: true
+});
+```
+
+### Ruby
+
+```
+api_key = "ablyApiKey"
+pubnub = Pubnub.new(
+  :subscribe_key => api_key,
+  :publish_key   => api_key,
+  :origin        => 'main.pubnub.ably.net',
+  :origins_pool  => ["main.pubnub.ably.net"],
+  :ssl           => true
+)
+```
+</Code>
+
+<Aside data-type='note'>
+PubNub uses different API keys for publishing and subscribing. Ably does not use different keys and instead manages access through API key and token [capabilities](https://ably.com/docs/auth/capabilities.md). The adapter will use the value passed to `subscribe_key` to create a connection to Ably. If that API key doesn't have publish capabilities, the client won't be able to publish.
+</Aside>
+
+| Option | Description |
+|--------|-------------|
+| subscribe_key | Set to your Ably API key. |
+| publish_key | Set to the same Ably API key that `subscribe_key` is using. |
+| origin | Set the domain to Ably's adapter endpoint. |
+| ssl | Ensure the connection uses SSL. This isn't required but strongly recommended by Ably to avoid sending API keys over a plain text connection. |
+
+There are some inconsistencies between PubNub SDKs regarding how a new origin is set. Most PubNub SDKs allow you to set the origin in the constructor, however some require you to set a domain and subdomain as separate properties. Others still require an `origins_pool` property set in addition to `origin`. Consult the PubNub documentation for whichever SDK you are using to confirm the required properties.
+
+You can also add any other PubNub options that you normally use.
+
+## Adapter behavior 
+
+There are certain behaviors to be aware of and how they are managed between the PubNub Adapter and Ably.
+
+### Publishing and subscribing 
+
+PubNub doesn't have the concept of a [message name](https://ably.com/docs/api/realtime-sdk/messages.md#name). PubNub message content maps to Ably's [message data](https://ably.com/docs/api/realtime-sdk/messages.md#data) property. A publish using the PubNub Adapter will leave the Ably message name blank, and message name is not visible to PubNub Adapter subscribers.
+
+Each UUID, for a given API key in a given region, is treated as a separate subscriber and will count as a separate connection to Ably. This is for presence purposes.
+
+The Pubnub adapter provides at least 2 minutes of message continuity over client disconnections. It does this by staying connected to Ably for 2 minutes after the end of the last subscribe long poll it receives. After that time, it will disconnect from Ably (and any presence members entered by that connection will leave). Any further subscribe polls will be treated as a new connection.
+
+PubNub's message continuity only provides the last 100 messages in total, across all channels a client is subscribed to. Using the PubNub Adapter clients will receive the last 100 messages for each channel that they are subscribed to. Note that in Pubnub's protocol there is no way to signal whether this represents all of the messages that were missed or not. Use an Ably SDK if you need to know this information as it will notify clients of [continuity losses](https://ably.com/docs/channels.md#non-fatal-errors).
+
+Be aware that using many UUIDs, for example using the `unique_uuid` option to generate a new UUID on page refresh, during development may result in connection counts increasing quickly as each connection will stay alive for at least 2 minutes.
+
+Ably allows commas in channel names, however PubNub uses them as delimiters and does not. Therefore, PubNub clients cannot access any Ably channels with commas in their names.
+
+### Presence and state 
+
+PubNub's `UUID` is mapped to Ably's [`clientId`](https://ably.com/docs/api/realtime-sdk/messages.md#clientid). PubNub treats the same UUID as the same client. Ably treats the same `clientId` using different connections as different members of the [presence set](https://ably.com/docs/presence-occupancy/presence.md). The presence set will include an ID multiple times if there are multiple connections with the same `clientId`. This enables you to check which devices are present for a member. When you retrieve the state of a `clientId`, and the same `clientId` is entered more than once, the adapter will choose only one of them and return its state.
+
+PubNub's member state is mapped to Ably's [presence data](https://ably.com/docs/presence-occupancy/presence.md#member-data). Members can only set their own state and cannot change other members' presence data.
+
+### REST requests 
+
+Some PubNub API requests are mapped to multiple Ably requests and will count as such for [rate limiting](https://ably.com/docs/platform/pricing/limits.md) and quota purposes. For example:
+
+* A global hereNow request is mapped to a request for a list of active channels, followed by a presence request for each channel. This is a total of *n+1* requests for *n* channels.
+* A mismatch exists between how Ably and PubNub paginate history requests. For example, any PubNub history requests that would result in Ably providing a paginated result will involve two Ably API requests.
+
+## Related Topics
+
+- [Overview](https://ably.com/docs/protocols.md): Clients can use the Ably network protocol adapters. This is especially useful where an Ably SDK is not available for your language of choice, or where platform resource constraints prohibit use of an SDK.
+- [Server-Sent Events (SSE)](https://ably.com/docs/protocols/sse.md): Ably provides support for Server-Sent Events (SSE). This is useful for where browser clients support SSE, and the use case does not require or support the resources used by an Ably SDK.
+- [MQTT](https://ably.com/docs/protocols/mqtt.md): Any MQTT-enabled client can communicate with the Ably service through the Ably MQTT protocol adapter. This is especially useful where an Ably SDK is not available for your language of choice.
+- [Pusher Adapter](https://ably.com/docs/protocols/pusher.md): Use the Pusher Adapter to migrate from Pusher to Ably by only changing your API key.
+
+## Documentation Index
+
+To discover additional Ably documentation:
+
+1. Fetch [llms.txt](https://ably.com/llms.txt) for the canonical list of available pages.
+2. Identify relevant URLs from that index.
+3. Fetch target pages as needed.
+
+Avoid using assumed or outdated documentation paths.

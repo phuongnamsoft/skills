@@ -1,0 +1,270 @@
+# Getting started: Pub/Sub in Python
+
+This guide will get you started with Ably Pub/Sub in Python.
+
+You'll establish a realtime connection to Ably and learn to publish and subscribe to messages. You'll also implement presence to track other online clients, and learn how to retrieve message history.
+
+<Aside data-type='note'>
+Using an AI coding assistant? [Teach it Ably](https://ably.com/docs/platform/ai-llms.md#agent-skills) with Agent Skills for all popular AI coding agents. Run `claude plugin add ably/agent-skills` or `npx skills add ably/agent-skills` to get started.
+</Aside>
+
+## Prerequisites 
+
+1. [Sign up](https://ably.com/signup) for an Ably account.
+2. Create a [new app](https://ably.com/accounts/any/apps/new), and create your first API key in the **API Keys** tab of the dashboard.
+3. Your API key will need the `publish`, `subscribe`, `presence` and `history` capabilities.
+4. Install [Python](https://www.python.org/downloads/) version 3.8 or greater.
+5. Create a new project and install the Ably Pub/Sub Python SDK:
+
+<Code>
+
+### Shell
+
+```
+# Create a new directory for your project
+mkdir ably-python-quickstart
+cd ably-python-quickstart
+
+# Create a virtual environment (recommended)
+python -m venv venv
+source venv/bin/activate  # On Windows use: venv\Scripts\activate
+
+# Install the Ably SDK
+pip install ably
+```
+</Code>
+
+### (Optional) Install Ably CLI 
+
+Use the [Ably CLI](https://github.com/ably/cli) as an additional client to quickly test Pub/Sub features. It can simulate other clients by publishing messages, subscribing to channels, and managing presence states.
+
+1. Install the Ably CLI:
+
+<Code>
+
+#### Shell
+
+```
+npm install -g @ably/cli
+```
+</Code>
+
+2. Run the following to log in to your Ably account and set the default app and API key:
+
+<Code>
+
+#### Shell
+
+```
+ably login
+```
+</Code>
+
+<If loggedIn={false}>
+  <Aside data-type='note'>
+  The code examples in this guide include a demo API key. If you wish to interact with the Ably CLI and view outputs within your Ably account, ensure that you replace them with your own API key.
+  </Aside>
+</If>
+
+## Step 1: Connect to Ably 
+
+Clients establish a connection with Ably when they instantiate an SDK instance. This enables them to send and receive messages in realtime across channels.
+
+Create a `get_started.py` file in your project and add the following function to instantiate the SDK and establish a connection to Ably. At the minimum you need to provide an authentication mechanism. Use an API key for simplicity, but you should use [token authentication](https://ably.com/docs/auth/token.md) in production environments. A [`client_id`](https://ably.com/docs/auth/identified-clients.md) ensures the client is identified, which is required to use certain features, such as presence:
+
+<Code>
+
+### Python
+
+```
+import asyncio
+from ably import AblyRealtime
+
+async def get_started():
+    # Initialize the Ably Realtime client
+    async with AblyRealtime("your-api-key", client_id="my-first-client") as ably_realtime:
+        def on_state_change(state_change):
+            if state_change.current.value == "connected":
+                print("Made my first connection!")
+
+        ably_realtime.connection.on(on_state_change)
+        await ably_realtime.connection.once_async("connected")
+        await asyncio.Event().wait()
+
+asyncio.run(get_started())
+```
+</Code>
+
+The Python SDK uses `asyncio` to provide asynchronous operations. This allows the client to handle events such as connection state changes, message receipt, and presence updates without blocking the main thread.
+
+You can monitor the lifecycle of clients' connections by registering a listener that will emit an event every time the connection state changes. For now, run the function with `python get_started.py` to log a message to the console to know that the connection attempt was successful. You'll see the message printed to your console, and you can also inspect the connection event in the dev console of your app.
+
+## Step 2: Subscribe to a channel and publish a message 
+
+Messages contain the data that a client is communicating, such as a short 'hello' from a colleague, or a financial update being broadcast to subscribers from a server. Ably uses channels to separate messages into different topics, so that clients only ever receive messages on the channels they are subscribed to.
+
+Add the following lines to your `get_started` function before the `await asyncio.Event().wait()` line to create a channel instance and register a listener to subscribe to the channel. Then run it with `python get_started.py`:
+
+<Code>
+
+### Python
+
+```
+# Get a channel instance
+channel = ably_realtime.channels.get("my-first-channel")
+
+# Subscribe to messages on the channel
+def on_message(message):
+    print(f"Received message: {message.data}")
+
+await channel.subscribe(on_message)
+```
+</Code>
+
+Use the Ably CLI to publish a message to your first channel. The message will be received by the client you've subscribed to the channel, and be logged to the console.
+
+<Code>
+
+### Shell
+
+```
+ably channels publish my-first-channel 'Hello!'
+```
+</Code>
+
+In a new terminal tab, subscribe to the same channel using the CLI:
+
+<Code>
+
+### Shell
+
+```
+ably channels subscribe my-first-channel
+```
+</Code>
+
+Publish another message using the CLI and you will see that, in your other Terminal window, it's received instantly by the client you have running locally, as well as the subscribed terminal instance.
+
+To publish a message with the client running in your IDE, you can add the following line to your `get_started` function before the `await asyncio.Event().wait()` line:
+
+<Code>
+
+### Python
+
+```
+await channel.publish("example", "A message sent from my first client!")
+```
+</Code>
+
+## Step 3: Presence 
+
+Presence enables clients to be aware of one another if they are present on the same channel. You can then show clients who else is online, provide a custom status update for each, and notify the channel when someone goes offline. With the Python SDK you can retrieve the presence set but cannot enter it. This means you can see who is present on a channel, but you cannot announce your own presence from a Python client.
+
+Have a client join the presence set using the Ably CLI:
+
+<Code>
+
+### Shell
+
+```
+ably channels presence enter my-first-channel --data '{"status":"learning about Ably!"}'
+```
+</Code>
+
+Add the following lines to your `get_started` function before the `await asyncio.Event().wait()` line to retrieve the list of members in the presence set. Then run it with `python get_started.py`:
+
+<Code>
+
+### Python
+
+```
+members_page = await channel.presence.get() # Returns a PaginatedResult
+member_ids = [member.client_id for member in members_page.items]
+print(f"Members in presence set: {member_ids}")
+```
+</Code>
+
+## Step 4: Retrieve message history 
+
+You can retrieve previously sent messages using the history feature. Ably stores all messages for 2 minutes by default in the event a client experiences network connectivity issues. You can [extend the storage period](https://ably.com/docs/storage-history/storage.md) of messages if required.
+
+If more than 2 minutes has passed since you published a regular message (excluding the presence events), then you can publish some more before trying out history. You can use the Pub/Sub SDK, Ably CLI or the dev console to do this.
+
+For example, using the Ably CLI to publish 5 messages:
+
+<Code>
+
+### Shell
+
+```
+ably channels publish --count 5 my-first-channel "Message number {{.Count}}"
+```
+</Code>
+
+Add the following lines to your `get_started` function before the `await asyncio.Event().wait()` line to retrieve any messages that were recently published to the channel. Then run it with `python get_started.py`:
+
+<Code>
+
+### Python
+
+```
+# Retrieve message history
+history = await channel.history()
+print([message.data for message in history.items])
+```
+</Code>
+
+The output will look similar to the following:
+
+<Code>
+
+### Json
+
+```
+[
+  'Message number 5',
+  'Message number 4',
+  'Message number 3',
+  'Message number 2',
+  'Message number 1'
+]
+```
+</Code>
+
+## Next steps 
+
+Continue to explore the documentation with Python as the selected language:
+
+* Understand [token authentication](https://ably.com/docs/auth/token.md) before going to production.
+* Understand how to effectively [manage connections](https://ably.com/docs/connect.md#close?lang=python).
+* Explore more [advanced](https://ably.com/docs/pub-sub/advanced.md) Pub/Sub concepts.
+
+You can also explore the [Ably CLI](https://www.npmjs.com/package/@ably/cli) further, or visit the Pub/Sub [API references](https://ably.com/docs/api/realtime-sdk.md).
+
+## Related Topics
+
+- [Overview](https://ably.com/docs/getting-started.md): Getting started with Ably Pub/Sub in your language or framework of choice. Learn how to publish, subscribe, track presence, fetch message history, and manage realtime connections.
+- [JavaScript](https://ably.com/docs/getting-started/javascript.md): Get started with Pub/Sub in vanilla JavaScript using Ably. Learn how to publish, subscribe, track presence, fetch message history, and manage realtime connections.
+- [Node.js](https://ably.com/docs/getting-started/node.md): Get started with Pub/Sub in JavaScript using Ably. Learn how to publish, subscribe, track presence, fetch message history, and manage realtime connections.
+- [React](https://ably.com/docs/getting-started/react.md): A getting started guide for Ably Pub/Sub React that steps through some of the key features using React and Vite.
+- [React Native](https://ably.com/docs/getting-started/react-native.md): A getting started guide for Ably Pub/Sub React Native that steps through some of the key features using React Native with Expo.
+- [Kotlin](https://ably.com/docs/getting-started/kotlin.md): Get started with Pub/Sub in Kotlin using Ably. Learn how to publish, subscribe, track presence, fetch message history, and manage realtime connections.
+- [Swift](https://ably.com/docs/getting-started/swift.md): Get started with Pub/Sub in Swift using Ably. Learn how to publish, subscribe, track presence, fetch message history, and manage realtime connections.
+- [Flutter](https://ably.com/docs/getting-started/flutter.md): A getting started guide for Ably Pub/Sub Flutter that steps through some of the key features using Flutter.
+- [Java](https://ably.com/docs/getting-started/java.md): A getting started guide for Ably Pub/Sub Java that steps through some of the key features using Java.
+- [Go](https://ably.com/docs/getting-started/go.md): Get started with Pub/Sub in Go using Ably. Learn how to publish, subscribe, track presence, fetch message history, and manage realtime connections.
+- [Ruby](https://ably.com/docs/getting-started/ruby.md): A getting started guide for Ably Pub/Sub Ruby that steps through some of the key features using Ruby.
+- [C# .NET](https://ably.com/docs/getting-started/dotnet.md): A getting started guide for Ably Pub/Sub C# .NET that steps through some of the key features using C# and .NET.
+- [Objective C](https://ably.com/docs/getting-started/objective-c.md): A getting started guide for Ably Pub/Sub Objective-C that steps through some of the key features using Objective-C.
+- [PHP](https://ably.com/docs/getting-started/php.md): A getting started guide for Ably Pub/Sub PHP that steps through some of the key features using PHP.
+- [Laravel](https://ably.com/docs/getting-started/laravel.md): A getting started guide for Ably Pub/Sub Laravel 12 that steps through some of the key features using Laravel.
+
+## Documentation Index
+
+To discover additional Ably documentation:
+
+1. Fetch [llms.txt](https://ably.com/llms.txt) for the canonical list of available pages.
+2. Identify relevant URLs from that index.
+3. Fetch target pages as needed.
+
+Avoid using assumed or outdated documentation paths.

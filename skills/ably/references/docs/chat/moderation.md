@@ -1,0 +1,88 @@
+# Moderation
+
+Moderation is a crucial feature for chat rooms and online communities to maintain a safe, respectful, and engaging environment for all participants. Moderators help enforce community guidelines and remove potentially harmful content that can drive users away from an online experience.
+
+Moderation strategies can take many forms. Human moderators can sit and participate in the chat room, using community guidelines to make judgements on the chat content, taking action such as deleting a message when it is found to be in violation of standards. Many modern approaches involve moderation engines and Artificial Intelligence models, which can screen content in order to filter out harmful messages before they are allowed into the chat room, without the need for human moderators. Many of these are highly configurable, allowing you to screen content across multiple categories to suit your needs. Hybrid approaches can make the best of both worlds, employing AI to pre-screen messages, with human moderators able to make judgement calls on edge-cases or in response to user feedback.
+
+Ably Chat supports a variety of moderation options in chat rooms, to help you keep your participants safe and engaged.
+
+## Types of moderation 
+
+Moderation with Ably falls into two categories: before and after publish.
+
+### Before publish 
+
+When using before publish moderation, a message is reviewed by an automated moderation engine (such as an AI model) before it is published to the chat room. This is helpful in sensitive scenarios where inappropriate content being visible in the chat room for even a second is unacceptable, for example, in schools.
+
+This approach provides additional safety guarantees, but may come at the cost of a small amount of latency, as messages must be vetted prior to being published.
+
+#### Common configuration fields 
+
+All before-publish moderation rules share the following configuration fields:
+
+| Field | Description |
+| ----- | ----------- |
+| Retry timeout | Maximum duration (in milliseconds) that an attempt to invoke the rule may take (including any retries). The possible range is 0 - 5000ms. |
+| Max retries | Maximum number of retries after the first attempt at invoking the rule. |
+| Failed action | The action to take in the event that a rule fails to invoke. Options are reject the request or publish anyway. |
+| Too many requests action | The action to take in the event that the moderation provider returns a 429 (Too Many Requests Response). Options are to fail rule invocation, or retry. |
+| Room filter (optional) | A regular expression to match to specific chat rooms. |
+
+### After publish 
+
+When using after publish moderation, a message is published as normal, but is forwarded to a moderation engine after the fact. This enables you to avoid the latency penalty of vetting content prior to publish, at the expense of bad content being visible in the chat room (at least briefly). Many automated moderation solutions are able to process and delete offending messages within a few seconds of publication.
+
+Please note that message deletion is currently performed as a soft delete, meaning that your application will need to filter out deleted messages that it sees.
+
+## Direct vs Custom 
+
+There are a plethora of moderation options available on the market, from simple pattern-matching APIs to fully fledged machine learning models.
+
+Ably provides direct integrations between your chat room and moderation providers, to give you access to powerful moderation platforms with minimal code and setup. If a provider you are looking for is not listed, please get in touch!
+
+Alternatively, you might have a custom solution you wish to integrate with, or a provider that Ably doesn't yet directly support. If this is the case, Ably offers a [custom option](https://ably.com/docs/chat/moderation/custom.md), where you can utilize serverless functions such as [AWS Lambda](https://ably.com/docs/chat/moderation/custom/lambda.md) to reach out to your own infrastructure to moderate chat messages.
+
+### Hive 
+
+[Hive](https://hivemoderation.com) provide automated content moderation solutions. The first of these is the [model only](https://ably.com/docs/chat/moderation/direct/hive-model-only.md) solution, which provides access to a powerful ML model that takes content and categorises it against various criteria, for example, violence or hate speech. For each classification, it also provides an indication of the severity of the infraction. Using this information, you can determine what level of classification is appropriate for your chat room and filter / reject content accordingly. Hive offer free credits to allow you to experiment with this solution.
+
+The second solution is the [dashboard](https://ably.com/docs/chat/moderation/direct/hive-dashboard.md). This is an all-in-one moderation tool, that allows you to combine automated workflows using ML models as well as human review and decisions to control the content in your chat room.
+
+Ably is able to integrate your chat rooms directly directly with both of these solutions, to allow you to get up and running with Hive moderation with minimal code required.
+
+### Tisane 
+
+Tisane provides automated content moderation through their [API solution](https://tisane.ai/). The platform uses Natural Language Understanding (NLU) to analyze user-generated content and categorize it against various criteria for content moderation. Each analysis includes information about the type and location of potentially problematic content, enabling you to determine appropriate moderation actions for your chat room.
+
+Tisane also offers an [on-premises solution](https://tisane.ai/) for organizations that need to deploy the moderation engine within their own infrastructure. Both options can be integrated with Ably to provide automated content moderation for your chat rooms.
+
+### Bodyguard 
+
+Bodyguard provides content moderation through their [API solution](https://www.bodyguard.ai/docs/api). The service performs contextual analysis of messages to detect and categorize inappropriate content based on configurable criteria. Each analysis provides detailed information about the content, enabling you to implement appropriate moderation actions in your chat room.
+
+The platform is accessed through a REST API and is integrated with Ably to provide automated content moderation for your chat rooms.
+
+### Azure Content Safety 
+
+Azure Content Safety provides content moderation through Microsoft's [AI Content Safety service](https://azure.microsoft.com/en-us/products/ai-services/ai-content-safety). The service uses AI to analyze text content and detect harmful material across multiple categories including `Hate`, `SelfHarm`, `Sexual`, and `Violence`. Each analysis provides severity levels ranging from 0 (Safe) to 6 (High), enabling you to configure thresholds appropriate for your chat room.
+
+The service is accessed through Azure's REST API and is integrated with Ably to provide automated content moderation for your chat rooms.
+
+## What's next? 
+
+* [Add moderation with Hive (model only)](https://ably.com/docs/chat/moderation/direct/hive-model-only.md)
+* [Add moderation with Hive Moderation Dashboard](https://ably.com/docs/chat/moderation/direct/hive-dashboard.md)
+* [Add moderation with Tisane](https://ably.com/docs/chat/moderation/direct/tisane.md)
+* [Add moderation with Bodyguard](https://ably.com/docs/chat/moderation/direct/bodyguard.md)
+* [Add moderation with Azure Content Safety](https://ably.com/docs/chat/moderation/direct/azure.md)
+* [Build custom moderation with the Moderation API](https://ably.com/docs/chat/moderation/custom.md)
+
+## Documentation Index
+
+To discover additional Ably documentation:
+
+1. Fetch [llms.txt](https://ably.com/llms.txt) for the canonical list of available pages.
+2. Identify relevant URLs from that index.
+3. Fetch target pages as needed.
+
+Avoid using assumed or outdated documentation paths.

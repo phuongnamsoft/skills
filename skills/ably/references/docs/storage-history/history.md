@@ -1,0 +1,1017 @@
+# History
+
+Ably's message History feature doesn’t replace a long-term database, it’s for short-term catch-up, allowing clients to retrieve messages they missed during a brief disconnection. Using it as a primary database is an architectural anti-pattern that will lead to problems.
+
+When a client disconnects, Ably automatically handles the reconnection. If the disconnection lasts less than 2 minutes, Ably's [connection-state recovery](https://ably.com/docs/platform/architecture/connection-recovery.md) feature streams any missed messages to the client. For longer outages, the client must use the [History API](https://ably.com/docs/api/realtime-sdk/history.md) to fetch the missed messages. The API works efficiently because it indexes all messages by channel, timestamp, and serial number, allowing retrieval from any point in time.
+
+It's important to understand that History is not a database. The feature is purely for time-based retrieval on a single channel. It simply cannot support the complex queries that modern applications require. For example, the History API does not index message content or publisher IDs, so you cannot:
+
+* Search messages by their author (clientId).
+* Perform a full-text search on message content.
+* Run relational queries, like grouping messages into threads.
+
+For any application needing complex queries or long-term data persistence, you must use a dedicated database. The best practices for consuming Pub/Sub data and persisting it to the right storage solutions are covered in our [integrations documentation](https://ably.com/docs/platform/integrations.md).
+
+You can also learn more about [connection states](https://ably.com/docs/connect/states.md) and the broader [platform architecture](https://ably.com/docs/platform/architecture.md).
+
+<Aside data-type='usp'>
+Two-minute message continuity.
+
+Ably maintains message continuity for up to 2 minutes during disconnections. The SDKs automatically handle [reconnection](https://ably.com/docs/platform/architecture/connection-recovery.md) and deliver all missed messages.
+</Aside>
+
+## History versus rewind 
+
+You can retrieve previously published messages using the history feature or using the [rewind channel option](https://ably.com/docs/channels/options/rewind.md). Key differences between the two features:
+
+* History can return up to 1000 messages in a single call, as a paginated list. Rewind returns at most 100 messages.
+* The `history()` method can be called repeatedly with different parameters. Rewind only has an effect on an initial channel attachment.
+* You can define a custom start and end time to retrieve messages from using history. Rewind returns either a given number of messages, or messages up to a point in time in the past.
+* History is available when using the realtime and REST interfaces of an SDK. Rewind is only available using the realtime interface.
+* Only history can return previously published presence events.
+
+## Retrieve channel history 
+
+The Ably SDKs provide a straightforward API to retrieve paginated message event history. By default each page of history contains up to 100 messages and is ordered from most recent to oldest. You can retrieve channel history by using the [`history()`](https://ably.com/docs/api/realtime-sdk/history.md#channel-history) method.
+
+### Multi-channel history limitations
+
+History is stored per channel. You cannot retrieve history from multiple channels in a single call. Each history request must target a specific channel.
+
+To retrieve history from multiple channels, iterate over your channels and call the history method for each one. You can do this synchronously (one after another) or asynchronously (in parallel):
+
+* Synchronous: Call history for each channel sequentially. Simpler but slower.
+* Asynchronous: Make parallel history calls for better performance. Combine and sort results by timestamp if needed.
+
+This pattern is commonly used when implementing channel sharding, where related data is distributed across multiple channels.
+
+This example retrieves the latest message sent on a channel:
+
+<Code>
+
+#### Realtime Javascript
+
+```
+const realtime = new Ably.Realtime('your-api-key');
+const channel = realtime.channels.get('your-channel-name');
+await channel.publish('example', 'message data');
+const history = await channel.history();
+const lastMessage = history.items[0];
+
+console.log('Last message: ' + lastMessage.id + ' - ' + lastMessage.data);
+```
+
+#### Realtime Nodejs
+
+```
+const realtime = new Ably.Realtime('your-api-key');
+const channel = realtime.channels.get('your-channel-name');
+await channel.publish('example', 'message data');
+const history = await channel.history();
+const lastMessage = history.items[0];
+
+console.log('Last message: ' + lastMessage.id + ' - ' + lastMessage.data);
+```
+
+#### Realtime Ruby
+
+```
+realtime = Ably::Realtime.new('your-api-key')
+channel = realtime.channels.get('your-channel-name')
+channel.publish 'example', 'message data' do
+    channel.history do |result_page|
+    last_message = result_page.items.last
+    puts "Last message: #{last_message.message.id} - #{last_message.data}")
+    end
+end
+```
+
+#### Realtime Python
+
+```
+realtime = AblyRealtime('your-api-key')
+channel = realtime.channels.get('your-channel-name')
+result_page = await channel.history()
+recent_message = result_page.items[0]
+print('Most recent message: ' + str(recent_message.message.id) + ' - ' + recent_message.data)
+```
+
+#### Realtime Java
+
+```
+AblyRealtime realtime = new AblyRealtime("your-api-key");
+Channel channel = realtime.channels.get("your-channel-name");
+channel.publish("example", "message data", new CompletionListener() {
+    @Override
+    public void onError(ErrorInfo reason) {
+        System.out.println("Unable to publish message; err = " + reason.message);
+    }
+    @Override
+    public void onSuccess() {
+        PaginatedResult<Message> resultPage = channel.history(null);
+        Message[] messages = resultPage.items();
+        if (messages.length > 0) {
+            Message lastMessage = messages[0];
+            System.out.println("Last message: " + lastMessage.id + " - " + lastMessage.data);
+        } else {
+            System.out.println("No messages in history.");
+        }
+    }
+});
+```
+
+#### Realtime Csharp
+
+```
+AblyRealtime realtime = new AblyRealtime("your-api-key");
+IRealtimeChannel channel = realtime.Channels.Get("your-channel-name");
+channel.Publish("example", "message data", async (success, error) =>
+{
+    PaginatedResult<Message> resultPage = await channel.HistoryAsync(null);
+    Message lastMessage = resultPage.Items[0];
+    Console.WriteLine("Last message: " + lastMessage.Id + " - " + lastMessage.Data);
+});
+```
+
+#### Realtime Objc
+
+```
+ARTRealtime *realtime = [[ARTRealtime alloc] initWithKey:@"your-api-key"];
+ARTRealtimeChannel *channel = [realtime.channels get:@"RANDOM_CHANNEL_NAME"];
+[channel publish:@"example" data:@"message data" callback:^(ARTErrorInfo *error) {
+    if (error) {
+        NSLog(@"Unable to publish message; err = %@", error.message);
+        return;
+    }
+    [channel history:^(ARTPaginatedResult<ARTMessage *> *resultPage, ARTErrorInfo *error) {
+        ARTMessage *lastMessage = resultPage.items[0];
+        NSLog(@"Last message: %@ - %@", lastMessage.id,lastMessage.data);
+    }];
+}];
+```
+
+#### Realtime Swift
+
+```
+let realtime = ARTRealtime(key: "your-api-key")
+let channel = realtime.channels.get("your-channel-name")
+channel.publish("example", data: "message data") { error in
+    if let error = error {
+        print("Unable to publish message; err = \(error.message)")
+        return
+    }
+    channel.history { resultPage, error in
+        let lastMessage = resultPage!.items[0] as! ARTMessage
+        print("Last message: \(lastMessage.id) - \(lastMessage.data)")
+    }
+}
+```
+
+#### Realtime Go
+
+```
+realtime, _ := ably.NewRealtime(
+  ably.WithKey("your-api-key"))
+channel := realtime.Channels.Get("your-channel-name")
+channel.Publish(context.Background(), "example", "message data")
+pages, err := channel.History().Pages(context.Background())
+if err != nil {
+  panic(err)
+}
+for pages.Next(context.Background()) {
+  for _, message := range pages.Items() {
+    fmt.Println(message)
+  }
+}
+if err := pages.Err(); err != nil {
+  panic(err)
+}
+```
+
+#### Realtime Flutter
+
+```
+final clientOptions = ably.ClientOptions(
+  key: 'your-api-key'
+);
+final realtime = ably.Realtime(options: clientOptions);
+final channel = realtime.channels.get('your-channel-name');
+await channel.publish(name: 'example', data: 'message data');
+final history = await channel.history();
+final lastMessage = history.items[0];
+print('Last message: ${lastMessage.id} - ${lastMessage.data}');
+```
+
+#### Rest Javascript
+
+```
+const rest = new Ably.Rest('your-api-key');
+const channel = rest.channels.get('your-channel-name');
+await channel.publish('example', 'message data');
+
+const history = await channel.history();
+const recentMessage = history.items[0];
+console.log('Most recent message: ' + recentMessage.id + ' - ' + recentMessage.data);
+```
+
+#### Rest Nodejs
+
+```
+const rest = new Ably.Rest('your-api-key');
+const channel = rest.channels.get('your-channel-name');
+await channel.publish('example', 'message data');
+
+const history = await channel.history();
+const recentMessage = history.items[0];
+console.log('Most recent message: ' + recentMessage.id + ' - ' + recentMessage.data);
+```
+
+#### Rest Ruby
+
+```
+rest = Ably::Rest.new('your-api-key')
+channel = rest.channels.get('your-channel-name')
+channel.publish 'example', 'message data'
+result_page = channel.history
+recent_message = result_page.items.first
+puts "Most recent message: #{recent_message.message.id} - #{recent_message.data}")
+```
+
+#### Rest Python
+
+```
+rest = AblyRest('your-api-key')
+channel = rest.channels.get('your-channel-name')
+result_page = await channel.history()
+recent_message = result_page.items[0]
+print('Most recent message: ' + str(recent_message.message.id) + ' - ' + recent_message.data)
+```
+
+#### Rest Php
+
+```
+$rest = new Ably\AblyRest('your-api-key');
+$channel = $rest->channels->get('your-channel-name');
+$channel->publish('example', 'message data');
+$resultPage = $channel->history();
+$recentMessage = $resultPage->items[0];
+echo("Most recent message data: " . $recentMessage->data);
+```
+
+#### Rest Java
+
+```
+AblyRest rest = new AblyRest("your-api-key");
+Channel channel = rest.channels.get("your-channel-name");
+channel.publish("example", "message data")
+PaginatedResult<Message> resultPage = channel.history(null);
+Message[] messages = resultPage.items();
+if (messages.length > 0) {
+    Message recentMessage = messages[0];
+    System.out.println("Most recent message: " + recentMessage.id + " - " + recentMessage.data);
+} else {
+    System.out.println("No messages in history.");
+}
+```
+
+#### Rest Csharp
+
+```
+AblyRest rest = new AblyRest("your-api-key");
+IRestChannel channel = rest.Channels.Get("your-channel-name");
+await channel.PublishAsync("example", "message data");
+PaginatedResult<Message> resultPage = await channel.HistoryAsync();
+Message recentMessage = resultPage.Items[0];
+Console.WriteLine("Most recent message: " + recentMessage.Id + " - " + recentMessage.Data);
+```
+
+#### Rest Objc
+
+```
+ARTRest *rest = [[ARTRest alloc] initWithKey:@"your-api-key"];
+ARTRestChannel *channel = [rest.channels get:@"your-channel-name"];
+[channel publish:@"example" data:@"message data"];
+[channel history:^(ARTPaginatedResult<ARTMessage *> *resultPage, ARTErrorInfo *error) {
+    ARTMessage *recentMessage = resultPage.items[0];
+    NSLog(@"Most recent message: %@ - %@", recentMessage.id, recentMessage.data);
+}];
+```
+
+#### Rest Swift
+
+```
+let rest = ARTRest(key: "your-api-key")
+let channel = rest.channels.get("your-channel-name")
+channel.publish("example", data: "message data")
+channel.history { resultPage, error in
+    let recentMessage = resultPage!.items[0] as! ARTMessage
+    print("Most recent message: \(recentMessage.id) - \(recentMessage.data)")
+}
+```
+
+#### Rest Go
+
+```
+rest, _ := ably.NewREST(
+  ably.WithKey("your-api-key"))
+channel := rest.Channels.Get("your-channel-name")
+channel.Publish(context.Background(), "example", "message data")
+pages, err := channel.History().Pages(context.Background())
+if err != nil {
+  panic(err)
+}
+for pages.Next(context.Background()) {
+  for _, message := range pages.Items() {
+    fmt.Println(message)
+  }
+}
+if err := pages.Err(); err != nil {
+  panic(err)
+}
+```
+
+#### Rest Flutter
+
+```
+final clientOptions = ably.ClientOptions(
+  key: 'your-api-key'
+);
+final realtime = ably.Rest(options: clientOptions);
+final channel = realtime.channels.get('your-channel-name');
+await channel.publish(name: 'example', data: 'message data');
+final history = await channel.history();
+final lastMessage = history.items[0];
+print('Last message: ${lastMessage.id} - ${lastMessage.data}');
+```
+</Code>
+
+### Channel history parameters 
+
+Query parameters for the `options` object when calling `history()`. Note that `untilAttach` is only available when using the realtime interface of an Ably SDK:
+
+| Parameter | Description |
+|-----------|-------------|
+| start | earliest time in milliseconds since the epoch for any messages retrieved |
+| end | latest time in milliseconds since the epoch for any messages retrieved |
+| direction | `forwards` or `backwards` |
+| limit | maximum number of messages to retrieve per page, up to 1,000 |
+| untilAttach | when true, ensures message history is up until the point of the channel being attached. See [continuous history](#continuous-history) for more info. Requires the `direction` to be `backwards` (the default). If the channel is not attached, or if `direction` is set to `forwards`, this option will result in an error.|
+
+It is possible to use the history API to retrieve the last message published to a channel that has been [persisted for up to a year with the persist-last feature](https://ably.com/docs/storage-history/storage.md#persist-last-message), if enabled, even if there is no history available from normal persisted history (if there have been no messages published on the channel for longer than the history retention period). To do this, make a history query with `limit=1` and no `start` or `end` time.
+
+### Continuous history 
+
+By using [rewind](https://ably.com/docs/channels/options/rewind.md) or history's `untilAttach`, it is possible to obtain message history that is continuous with the realtime messages received on an attached channel. For example, a user joining a navigation app with traffic updates would receive the latest traffic update and be subscribed to any new traffic updates.
+
+#### Rewind 
+
+If you wish to obtain history as part of attaching to a channel, you can use the [rewind channel parameter](https://ably.com/docs/channels/options/rewind.md). This will act as though you had attached to a channel from a certain message or time in the past, and play through all messages since that point. Rewind can only be used when first attaching to a channel.
+
+A `rewind` value that is a number (`n`) is a request to attach to the channel at a position of `n` messages before the present position. `rewind` can also be a time interval, specifying a number of seconds (`15s`) or minutes (`1m`) to replay messages from.
+
+Note that this is only available with the realtime interface.
+
+This example subscribes to the channel and relays the last 3 messages:
+
+<Code>
+
+##### Realtime Javascript
+
+```
+const realtime = new Ably.Realtime('your-api-key');
+const channel = realtime.channels.get('your-channel-name', {
+  params: {rewind: '3'}
+})
+await channel.subscribe((message) => {
+  console.log('Received message: ', message)
+});
+```
+
+##### Realtime Nodejs
+
+```
+const realtime = new Ably.Realtime('your-api-key');
+const channel = realtime.channels.get('your-channel-name', {
+  params: {rewind: '3'}
+})
+await channel.subscribe((message) => {
+  console.log('Received message: ', message)
+});
+```
+
+##### Realtime Java
+
+```
+  final Map<String, String> params = new HashMap<>();
+  params.put("rewind", "3");
+  final ChannelOptions options = new ChannelOptions();
+  options.params = params;
+  final Channel channel = ably.channels.get("your-channel-name", options);
+
+  channel.subscribe(new MessageListener() {
+    @Override
+    public void onMessage(Message message) {
+      System.out.println("Received `" + message.name + "` message with data: " + message.data);
+    }
+  });
+```
+
+##### Realtime Swift
+
+```
+  let options = ARTClientOptions(key: "your-api-key")
+  let client = ARTRealtime(options: options)
+  let channelOptions = ARTRealtimeChannelOptions()
+  channelOptions.params = [
+    "rewind": "3"
+  ]
+
+  let channel = client.channels.get(channelName, options: channelOptions)
+```
+
+##### Realtime Csharp
+
+```
+  var clientOptions = new ClientOptions();
+  clientOptions.Key = "your-api-key";
+  clientOptions.Environment = AblyEnvironment;
+  var ably = new AblyRealtime(clientOptions);
+
+  var channelParams = new ChannelParams();
+  channelParams.Add("rewind", "3");
+  var channelOptions = new ChannelOptions();
+  channelOptions.Params = channelParams;
+  var channel = ably.Channels.Get("your-channel-name", channelOptions);
+
+  channel.Subscribe(message => {
+      Console.WriteLine(message.Data.ToString());
+  });
+```
+
+##### Realtime Go
+
+```
+realtime, _ := ably.NewRealtime(
+  ably.WithKey("your-api-key"))
+channel := realtime.Channels.Get("your-channel-name", ably.ChannelWithParams("rewind", "3"))
+
+channel.SubscribeAll(context.Background(), func(message *ably.Message) {
+  fmt.Println("Received message:", message)
+})
+```
+
+##### Realtime Flutter
+
+```
+final clientOptions = ably.ClientOptions(
+  key: 'your-api-key',
+);
+final realtime = ably.Realtime(options: clientOptions);
+final channel = realtime.channels.get(
+  'your-channel-name'
+);
+const channelOptions = RealtimeChannelOptions(
+  params: {'rewind': '3'},
+);
+await channel.setOptions(channelOptions);
+channel.subscribe().listen((ably.Message message) {
+  print('Received message: ${message.name} - ${message.data}');
+});
+```
+</Code>
+
+You can also qualify a channel name with rewind when using the service without a library, such as with [SSE](https://ably.com/docs/protocols/sse.md) or [MQTT](https://ably.com/docs/protocols/mqtt.md).
+
+#### History with untilAttach 
+
+You can obtain message history that is continuous with the realtime messages received on an attached channel, in the backwards direction from the point of attachment. When a channel instance is attached, it's automatically populated by the Ably service with the serial number of the last published message on the channel. As such the serial number can be used to make a history request to the Ably service for all messages published before the channel was attached. Any new messages therefore are received in real time via the attached channel, and any historical messages are accessible via the history method.
+
+Calling `subscribe()` implicitly attaches the channel if it is not already attached. To ensure there is no gap between historical and realtime messages, subscribe to the channel before making a history request with `untilAttach`. This guarantees that all messages from the point of attachment onwards are received via the subscription, while all prior messages are retrieved via history.
+
+The following example subscribes to the channel and then retrieves the last message published prior to the channel being attached:
+
+<Code>
+
+##### Realtime Javascript
+
+```
+const realtime = new Ably.Realtime('your-api-key');
+const channel = realtime.channels.get('your-channel-name');
+await channel.publish('example', 'message data');
+
+channel.subscribe((message) => {
+    console.log('Received message: ' + message.data);
+});
+
+await channel.whenState('attached');
+
+const history = await channel.history({untilAttach: true});
+const lastMessage = history.items[0];
+console.log('Last message before attach: ' + lastMessage.data);
+```
+
+##### Realtime Nodejs
+
+```
+const realtime = new Ably.Realtime('your-api-key');
+const channel = realtime.channels.get('your-channel-name');
+await channel.publish('example', 'message data');
+
+channel.subscribe((message) => {
+    console.log('Received message: ' + message.data);
+});
+
+await channel.whenState('attached');
+
+const history = await channel.history({untilAttach: true});
+const lastMessage = history.items[0];
+console.log('Last message before attach: ' + lastMessage.data);
+```
+
+##### Realtime Ruby
+
+```
+  realtime = Ably::Realtime.new('your-api-key')
+  channel = realtime.channels.get('your-channel-name')
+
+  channel.subscribe do |message|
+    puts "Received message: #{message.data}"
+  end
+
+  channel.on(:attached) do
+    channel.history(until_attach: true) do |result_page|
+      last_message = result_page.items.last
+      puts "Last message before attach: #{last_message.data}")
+    end
+  end
+```
+
+##### Realtime Java
+
+```
+  AblyRealtime realtime = new AblyRealtime("your-api-key");
+  Channel channel = realtime.channels.get("your-channel-name");
+
+  channel.subscribe(new MessageListener() {
+      @Override
+      public void onMessage(Message message) {
+          System.out.println("Received message: " + message.data);
+      }
+  });
+
+  channel.on(ChannelState.attached, new ChannelStateListener() {
+      @Override
+      public void onChannelStateChanged(ChannelStateChange stateChange) {
+          Param[] options = new Param[]{ new Param("untilAttach", "true") };
+          PaginatedResult<Message> resultPage = channel.history(options);
+          Message[] messages = resultPage.items();
+          if (messages.length > 0) {
+              Message lastMessage = messages[0];
+              System.out.println("Last message before attach: " + lastMessage.data);
+          } else {
+              System.out.println("No messages in history.");
+          }
+      }
+  });
+```
+
+##### Realtime Csharp
+
+```
+  AblyRealtime realtime = new AblyRealtime("your-api-key");
+  IRealtimeChannel channel = realtime.Channels.Get("your-channel-name");
+
+  channel.Subscribe(message => {
+    Console.WriteLine("Received message: " + message.Data);
+  });
+
+  await channel.AttachAsync();
+
+  PaginatedResult<Message> resultPage = await channel.HistoryAsync(untilAttach: true);
+  Message lastMessage = resultPage.Items[0];
+  Console.WriteLine("Last message before attach: " + lastMessage.Data);
+```
+
+##### Realtime Objc
+
+```
+ARTRealtime *realtime = [[ARTRealtime alloc] initWithKey:@"your-api-key"];
+ARTRealtimeChannel *channel = [realtime.channels get:@"RANDOM_CHANNEL_NAME"];
+
+[channel subscribe:^(ARTMessage *message) {
+    NSLog(@"Received message: %@", message.data);
+}];
+
+[channel on:ARTChannelEventAttached callback:^(ARTErrorInfo *error) {
+    ARTRealtimeHistoryQuery *query = [[ARTRealtimeHistoryQuery alloc] init];
+    query.untilAttach = YES;
+    [channel history:query callback:^(ARTPaginatedResult<ARTMessage *> *resultPage, ARTErrorInfo *error) {
+        ARTMessage *lastMessage = resultPage.items[0];
+        NSLog(@"Last message before attach: %@ - %@", lastMessage.id, lastMessage.data);
+    } error:nil];
+}];
+```
+
+##### Realtime Swift
+
+```
+let realtime = ARTRealtime(key: "your-api-key")
+let channel = realtime.channels.get("your-channel-name")
+
+channel.subscribe { message in
+    print("Received message: \(message.data)")
+}
+
+channel.on(.attached) { error in
+    let query = ARTRealtimeHistoryQuery()
+    query.untilAttach = true
+    try! channel.history(query) { resultPage, error in
+        let lastMessage = resultPage!.items[0] as! ARTMessage
+        print("Last message before attach: \(lastMessage.id) - \(lastMessage.data)")
+    }
+}
+```
+
+##### Realtime Go
+
+```
+client, err := ably.NewRealtime(
+  ably.WithKey("your-api-key"))
+if err != nil {
+  log.Fatalf("Failed to create Ably Realtime client: %v", err)
+}
+
+channel := client.Channels.Get("your-channel-name")
+
+unsubscribe, err := channel.Subscribe(context.Background(), func(msg *ably.Message) {
+  fmt.Printf("Received message: %v\n", msg.Data)
+})
+if err != nil {
+  log.Fatalf("Failed to subscribe: %v", err)
+}
+defer unsubscribe()
+
+err = channel.Attach(context.Background())
+if err != nil {
+  log.Fatalf("Failed to attach: %v", err)
+}
+
+history, _ := channel.HistoryUntilAttach()
+pages, _ := history.Pages(context.Background())
+for pages.Next(context.Background()) {
+  for _, message := range pages.Items() {
+    fmt.Printf("Last message before attach: %v\n", message.Data)
+  }
+}
+```
+
+##### Realtime Flutter
+
+```
+final clientOptions = ably.ClientOptions(
+  key: 'your-api-key',
+);
+final realtime = ably.Realtime(options: clientOptions);
+final channel = realtime.channels.get(
+  'your-channel-name'
+);
+
+final channelMessageSubscription = channel.subscribe()
+  .listen((message) {
+    print('Received message: ${message.data}');
+  });
+
+await channel.attach();
+
+final historyParams = ably.RealtimeHistoryParams(untilAttach: true);
+final history = await channel.history(historyParams);
+final lastMessage = history.items[0];
+print('Last message before attach: ${lastMessage.data}');
+```
+</Code>
+
+## Retrieve presence history 
+
+Retrieve [presence](https://ably.com/docs/presence-occupancy/presence.md) history using the [`history()`](https://ably.com/docs/api/realtime-sdk/presence.md#history) method on the presence object. This enables a client to retrieve historical presence events from the channel.
+
+This example retrieves a paginated list of historical presence events published:
+
+<Code>
+
+### Realtime Javascript
+
+```
+await channel.presence.enter('enter');
+const history = await channel.presence.history();
+console.log(history.items.length + ' presence events received in first page');
+
+if (history.hasNext()) {
+  const nextHistory = await history.next();
+  console.log(nextHistory.items.length);
+}
+```
+
+### Realtime Nodejs
+
+```
+await channel.presence.enter('enter');
+const history = await channel.presence.history();
+console.log(history.items.length + ' presence events received in first page');
+
+if (history.hasNext()) {
+  const nextHistory = await history.next();
+  console.log(nextHistory.items.length);
+}
+```
+
+### Realtime Ruby
+
+```
+channel.attach do
+presence = channel.presence
+presence.history() do |result_page|
+    puts "#{result_page.items.length} presence events received in first page"
+    if result_page.has_next?
+    result_page.next { |next_page| ... }
+    end
+end
+end
+```
+
+### Realtime Java
+
+```
+Param[] options = new Param[]{};
+PaginatedResult<PresenceMessage> resultPage = channel.presence.history(options);
+System.out.println(resultPage.items().length + " presence events received in first page");
+if (resultPage.hasNext()) {
+    PaginatedResult<PresenceMessage> nextPage = resultPage.next();
+    System.out.println(nextPage.items().length + " presence events received in 2nd page");
+}
+```
+
+### Realtime Csharp
+
+```
+PaginatedResult<PresenceMessage> resultPage;
+resultPage = await channel.Presence.HistoryAsync();
+Console.WriteLine(resultPage.Items.Count + " presence events received in first page");
+if (resultPage.HasNext)
+{
+    PaginatedResult<PresenceMessage> nextPage = await resultPage.NextAsync();
+    Console.WriteLine(nextPage.Items.Count + " presence events received in 2nd page");
+}
+```
+
+### Realtime Objc
+
+```
+ARTRealtimeHistoryQuery *query = [[ARTRealtimeHistoryQuery alloc] init];
+[channel.presence history:query callback:^(ARTPaginatedResult<ARTPresenceMessage *> *resultPage,
+                                        ARTErrorInfo *error) {
+    NSLog(@"%lu presence events received in first page", [resultPage.items count]);
+    if (resultPage.hasNext) {
+        [resultPage next:^(ARTPaginatedResult<ARTPresenceMessage *> *nextPage, ARTErrorInfo *error) {
+            NSLog(@"%lu presence events received in 2nd page", [nextPage.items count]);
+        }];
+    }
+}];
+```
+
+### Realtime Swift
+
+```
+let query = ARTRealtimeHistoryQuery()
+channel.presence.history(query) { resultPage, error in
+    let resultPage = resultPage!
+    print("\(resultPage.items.count) presence events received in first page")
+    if resultPage.hasNext {
+        resultPage.next { nextPage, error in
+            print("\(nextPage!.items.count) presence events received in 2nd page")
+        }
+    }
+}
+```
+
+### Realtime Flutter
+
+```
+await channel.presence.enter('enter');
+final history = await channel.presence.history();
+print('${history.items.length} presence events received in first page');
+
+if (history.hasNext()) {
+  final nextHistory = await history.next();
+  print(nextHistory.items.length);
+}
+```
+
+### Rest Javascript
+
+```
+await channel.presence.enter('enter');
+const history = await channel.presence.history();
+console.log(history.items.length + ' presence events received in first page');
+
+if (history.hasNext()) {
+  const nextHistory = await history.next();
+  console.log(nextHistory.items.length);
+}
+```
+
+### Rest Nodejs
+
+```
+await channel.presence.enter('enter');
+const history = await channel.presence.history();
+console.log(history.items.length + ' presence events received in first page');
+
+if (history.hasNext()) {
+  const nextHistory = await history.next();
+  console.log(nextHistory.items.length);
+}
+```
+
+### Rest Ruby
+
+```
+events_page = channel.presence.history
+puts "#{events_page.items.length} presence events received in first page"
+if events_page.has_next?
+next_page = events_page.next
+puts "#{next_page.items.length} presence events received on second page"
+end
+```
+
+### Rest Php
+
+```
+$eventsPage = $channel->presence->history();
+echo(count($eventsPage->items) . ' presence events received in first page');
+if (count($eventsPage->items) > 0 && $eventsPage.hasNext()) {
+    $nextPage = $eventsPage->next();
+    echo(count($nextPage->items) . ' presence events received in second page');
+}
+```
+
+### Rest Python
+
+```
+events_page = await channel.presence.history()
+print str(len(events_page.items)) + " presence events received"
+if events_page.has_next():
+next_page = events_page.next()
+```
+
+### Rest Java
+
+```
+PaginatedResult<PresenceMessage> eventsPage = channel.presence.history(null);
+System.out.println(eventsPage.items().length + " presence events received in first page");
+if(eventsPage.hasNext()) {
+PaginatedResult<PresenceMessage> nextPage = eventsPage.next();
+System.out.println(nextPage.items().length + " presence events received in 2nd page");
+}
+```
+
+### Rest Csharp
+
+```
+PaginatedResult<PresenceMessage> eventsPage = await channel.Presence.HistoryAsync();
+Console.WriteLine(eventsPage.Items.Count + " presence events received in first page");
+if (eventsPage.HasNext)
+{
+    PaginatedResult<PresenceMessage> nextPage = await eventsPage.NextAsync();
+    Console.WriteLine(nextPage.Items.Count + " presence events received in 2nd page");
+}
+```
+
+### Rest Objc
+
+```
+[channel.presence history:^(ARTPaginatedResult<ARTPresenceMessage *> *eventsPage, ARTErrorInfo *error) {
+NSLog(@"%lu presence events received in first page", [eventsPage.items count]);
+if (eventsPage.hasNext) {
+    [eventsPage next:^(ARTPaginatedResult<ARTPresenceMessage *> *nextPage, ARTErrorInfo *error) {
+    NSLog(@"%lu presence events received in 2nd page", [nextPage.items count]);
+    }];
+}
+}];
+```
+
+### Rest Swift
+
+```
+channel.presence.history { eventsPage, error in
+let eventsPage = eventsPage!
+print("\(eventsPage.items.count) presence events received in first page")
+if eventsPage.hasNext {
+    eventsPage.next { nextPage, error in
+    print("\(nextPage!.items.count) presence events received in 2nd page")
+    }
+}
+}
+```
+
+### Rest Go
+
+```
+pages, err := channel.Presence.History().Pages(context.Background())
+if err != nil {
+  panic(err)
+}
+for pages.Next(context.Background()) {
+  for _, presence := range pages.Items() {
+    fmt.Println("--- Channel presence history ---")
+    fmt.Println(examples.Jsonify(presence))
+    fmt.Println("----------")
+  }
+}
+if err := pages.Err(); err != nil {
+  panic(err)
+}
+```
+
+### Rest Flutter
+
+```
+final history = await channel.presence.history();
+print('${history.items.length} presence events received in first page');
+
+if (history.hasNext()) {
+  final nextHistory = await history.next();
+  print(nextHistory.items.length);
+}
+```
+</Code>
+
+### Presence history parameters 
+
+Query parameters for the `options` object when calling `presence.history()`:
+
+| Parameter | Description |
+|-----------|-------------|
+| start | earliest time in milliseconds since the epoch for any messages retrieved |
+| end | latest time in milliseconds since the epoch for any messages retrieved |
+| direction | forwards or backwards |
+| limit | maximum number of messages to retrieve per page, up to 1,000 |
+
+## Global history synchronization 
+
+Channel history is synchronized across all datacenters within approximately 100 milliseconds of message publication. This ensures consistent history retrieval regardless of which datacenter serves the request.
+
+### Synchronization process
+
+When a message is published, it moves through a multi-stage synchronization process.
+
+When a message is published:
+
+1. The message is immediately available in ephemeral storage (Redis) at the publishing datacenter.
+2. Within 100ms, the message propagates to persistent storage across multiple datacenters.
+3. History requests from any region will return the same message set once synchronization completes.
+
+### Storage consistency
+
+Different storage types have different consistency guarantees.
+
+The following table explains storage consistency levels:
+
+| Storage type | Synchronization time | Consistency level |
+|-------------|---------------------|------------------|
+| Ephemeral storage | Immediate at publishing datacenter | Eventually consistent globally |
+| Persistent storage | ~100ms across all datacenters | Strong consistency via quorum |
+| Message survivability | 99.999999% after acknowledgment | Replicated to 3+ regions |
+
+### Implications for applications
+
+Understanding these synchronization characteristics helps you design robust applications.
+
+* History requests may show slight delays (up to 100ms) for messages published in remote datacenters.
+* Connection recovery works reliably regardless of datacenter failover.
+* Message continuity is preserved even during regional failures.
+* Applications should not depend on instant global history consistency for real-time features.
+
+
+## Ordering of historical messages 
+
+The order in which historical messages are returned with history is based on the message timestamp that was assigned by the channel in the region that the message was published in. This ordering is what Ably calls the canonical global order.
+
+This is not necessarily the order that messages were received by a realtime client. The order in which each realtime client receives a message depends on which region the client is in.
+
+Ably preserves ordering for a specific publisher on a specific channel but, for example, if two publishers in regions A and B publish _message-one_ and _message-two_ simultaneously, then it is very possible that a subscriber in region A will receive _message-one_ before _message-two_, but that a subscriber in region B will receive _message-two_ before _message-one_.
+
+There are some instances where messages will not be in canonical global order when using [continuous history](#continuous-history). Continuous history utilizes either a REST history call with the `untilAttach` parameter set to `true`, or the [rewind](https://ably.com/docs/channels/options/rewind.md) feature on a realtime connection. Messages that are less than two minutes old are retrieved from live ephemeral storage and are ordered only by region. This is to ensure that they correctly mesh with the live stream of messages currently being published in that region. Messages older than two minutes are retrieved from [persisted history](https://ably.com/docs/storage-history/storage.md#all-message-persistence) (if it is enabled). These messages will be in canonical global order. Ably ensures that the transition between those messages retrieved from ephemeral storage, and those from persisted storage, occurs without duplication or missed messages.
+
+## Related Topics
+
+- [Message storage](https://ably.com/docs/storage-history/storage.md): Explore the different ways Ably can handle Message Storage
+
+## Documentation Index
+
+To discover additional Ably documentation:
+
+1. Fetch [llms.txt](https://ably.com/llms.txt) for the canonical list of available pages.
+2. Identify relevant URLs from that index.
+3. Fetch target pages as needed.
+
+Avoid using assumed or outdated documentation paths.

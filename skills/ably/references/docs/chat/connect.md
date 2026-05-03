@@ -1,0 +1,321 @@
+# Connections
+
+When you [instantiate](https://ably.com/docs/chat/setup.md#instantiate) a client, a realtime connection is established and maintained with Ably. You can interact with the connection using the `ChatClient.connection` object in order to monitor a client's connection status.
+
+## Connection statuses 
+
+A connection can have any of the following statuses:
+
+| Status | Description |
+|--------|-------------|
+| `initialized` | A connection object has been initialized but not yet connected. |
+| `connecting` | A connection attempt has been initiated, this status is entered as soon as the SDK has completed initialization, and is re-entered each time connection is re-attempted following disconnection. |
+| `connected` | A connection exists and is active. |
+| `disconnected` | A temporary failure condition when no current connection exists. The disconnected status is entered if an established connection is dropped, or if a connection attempt is unsuccessful. |
+| `suspended` | A long term failure condition when no current connection exists because there is no network connectivity or available host. The suspended status is entered after a failed connection attempt if there has then been no connection for a period of two minutes. In the suspended status, an SDK will periodically attempt to open a new connection every 30 seconds. Rooms will be reattached on a successful reconnection, however message history will not be automatically recovered. |
+| `closing` | An explicit request by the developer to close the connection has been sent to the Ably service. If a reply is not received from Ably within a short period of time, the connection is forcibly terminated and the connection status becomes Closed. |
+| `closed` | The connection has been explicitly closed by the client. In the closed state, no reconnection attempts are made automatically. No connection state is preserved by the service or the library. |
+| `failed` | This status is entered if the SDK encounters a failure condition that it cannot recover from. This may be a fatal connection error received from the Ably service, such as an attempt to connect with an incorrect API key, or some local terminal error, such as that the token in use has expired and the SDK does not have any way to renew it. |
+
+<If lang="javascript,swift,kotlin,android">
+Use the <If lang="javascript">[`status`](https://ably.com/docs/chat/api/javascript/connection.md#properties)</If><If lang="swift">[`status`](https://sdk.ably.com/builds/ably/ably-chat-swift/main/AblyChat/documentation/ablychat/connectionstatus)</If><If lang="kotlin,android">[`status`](https://sdk.ably.com/builds/ably/ably-chat-kotlin/main/dokka/chat/com.ably.chat/-connection/status.html)</If> property to check which status a connection is currently in:
+</If>
+
+<If lang="react">
+Use the [`currentStatus`](https://sdk.ably.com/builds/ably/ably-chat-js/main/typedoc/interfaces/chat-react.UseChatConnectionResponse.html#currentStatus) property returned in the response of the [`useChatConnection`](https://sdk.ably.com/builds/ably/ably-chat-js/main/typedoc/functions/chat-react.useChatConnection.html) hook to check which status a connection is currently in:
+</If>
+
+<Code>
+
+### Javascript
+
+```
+const connectionStatus = chatClient.connection.status;
+
+// The error related to the current status
+const error = chatClient.connection.error;
+```
+
+### React
+
+```
+import { useChatConnection } from '@ably/chat/react';
+
+const MyComponent = () => {
+  const { currentStatus } = useChatConnection({
+    onStatusChange: (statusChange) => {
+      console.log('Connection status changed to: ', statusChange.current);
+    },
+  });
+  return <div>Connection status is: {currentStatus}</div>;
+};
+```
+
+### Swift
+
+```
+let status = chatClient.connection.status
+```
+
+### Kotlin
+
+```
+val connectionStatus = chatClient.connection.status
+```
+
+### Android
+
+```
+val connectionStatus = chatClient.connection.status
+```
+</Code>
+
+<If lang="react">
+Hooks related to chat features, such as `useMessages` and `useTyping`, also return the current `connectionStatus` in their response.
+
+<Code>
+
+### React
+
+```
+import { useMessages } from '@ably/chat/react';
+
+const MyComponent = () => {
+  const { connectionStatus } = useMessages({
+    listener: (message) => {
+      console.log('Received message: ', message);
+    },
+  });
+
+  return <div>Current connection status is: {connectionStatus}</div>;
+};
+```
+</Code>
+
+Listeners can also be registered to monitor the changes in connection status. Any hooks that take an optional listener to monitor their events, such as typing indicator events in the `useTyping` hook, can also register a status change listener. Changing the value provided for a listener will cause the previously registered listener instance to stop receiving events. All messages will be received by exactly one listener.
+</If>
+
+<If lang="javascript,swift,kotlin">
+Use the <If lang="javascript">[`connection.onStatusChange()`](https://ably.com/docs/chat/api/javascript/connection.md#onStatusChange)</If><If lang="swift">[`connection.onStatusChange()`](https://sdk.ably.com/builds/ably/ably-chat-swift/main/AblyChat/documentation/ablychat/connection/onstatuschange%28%29-76t7)</If><If lang="kotlin">[`connection.onStatusChange()`](https://sdk.ably.com/builds/ably/ably-chat-kotlin/main/dokka/chat/com.ably.chat/-connection/on-status-change.html)</If> method to register a listener for status change updates:
+</If>
+
+<If lang="android">
+Use the [`collectAsStatus()`](https://sdk.ably.com/builds/ably/ably-chat-kotlin/main/jetpack/chat-extensions-compose/com.ably.chat.extensions.compose/collect-as-status.html) composable function to observe the connection status:
+</If>
+
+<Code>
+
+### Javascript
+
+```
+const { off } = chatClient.connection.onStatusChange((change) => console.log(change));
+```
+
+### React
+
+```
+import { useOccupancy } from '@ably/chat/react';
+
+const MyComponent = () => {
+  useOccupancy({
+    onConnectionStatusChange: (connectionStatusChange) => {
+      console.log('Connection status change:', connectionStatusChange);
+    },
+  });
+  return <div>Occupancy Component</div>;
+};
+```
+
+### Swift
+
+```
+let subscription = chatClient.connection.onStatusChange()
+for await statusChange in subscription {
+  print("Connection status changed to: \(statusChange.current)")
+}
+```
+
+### Kotlin
+
+```
+val (off) = chatClient.connection.onStatusChange { statusChange: ConnectionStatusChange ->
+    println(statusChange.toString())
+}
+```
+
+### Android
+
+```
+import androidx.compose.material.*
+import androidx.compose.runtime.*
+import com.ably.chat.ChatClient
+import com.ably.chat.extensions.compose.collectAsStatus
+
+@Composable
+fun MyComponent(chatClient: ChatClient) {
+  val connectionStatus by chatClient.connection.collectAsStatus()
+
+  LaunchedEffect(connectionStatus) {
+    println("Connection status changed to: $connectionStatus")
+  }
+
+  Text("Connection status: $connectionStatus")
+}
+```
+</Code>
+
+<If lang="javascript,kotlin">
+Use the `off()` function returned in the `onStatusChange()` response to remove a listener:
+</If>
+
+
+
+<If lang="javascript,kotlin">
+<Code>
+
+### Javascript
+
+```
+off();
+```
+
+### Kotlin
+
+```
+off()
+```
+</Code>
+</If>
+
+<Aside data-type="usp">
+Automatic network failure recovery.
+
+Ably's SDKs automatically resolve [edge network](https://ably.com/docs/platform/architecture/edge-network.md) failures within 30 seconds, keeping your users connected even during infrastructure issues.
+</Aside>
+
+## Handle connection discontinuity 
+
+If a client briefly loses connection to Ably, for example when driving through a tunnel, the SDK will attempt to recover the connection. If the disruption lasts for less than 2 minutes, then on reconnection the SDK will automatically reattach to any rooms and replay any missed messages.
+
+During periods of discontinuity greater than 2 minutes then you will need to take steps to recover any missed messages, such as by calling [history](https://ably.com/docs/chat/rooms/history.md).
+
+<If lang="javascript,swift,kotlin">
+The Chat SDK provides an `onDiscontinuity()` handler exposed via the Room object to assist with this. This method enables you to register a listener that will be notified when discontinuity occurs in the room so that you can handle it, as needed.
+</If>
+
+<If lang="react">
+Any hooks that take an optional listener to monitor their events, such as typing indicator events in the `useTyping` hook, can also register a listener to be notified of, and handle, periods of discontinuity.
+</If>
+
+<If lang="android">
+Use the [`discontinuityAsFlow()`](https://sdk.ably.com/builds/ably/ably-chat-kotlin/main/dokka/chat/com.ably.chat/discontinuity-as-flow.html) extension function to observe discontinuity events as a Flow in Jetpack Compose:
+</If>
+
+For example, for messages:
+
+<Code>
+
+### Javascript
+
+```
+const { off } = room.onDiscontinuity((reason: ErrorInfo) => {
+  // Recover from the discontinuity
+});
+```
+
+### React
+
+```
+import { useState } from 'react';
+import { useMessages } from '@ably/chat/react';
+
+const MyComponent = () => {
+  useMessages({
+    onDiscontinuity: (error) => {
+      console.log('Discontinuity detected:', error);
+    },
+  });
+
+  return <div>...</div>;
+};
+```
+
+### Swift
+
+```
+let subscription = room.onDiscontinuity()
+for await error in subscription {
+  print("Recovering from the error: \(error)")
+}
+```
+
+### Kotlin
+
+```
+val (off) = room.onDiscontinuity { reason: ErrorInfo ->
+  // Recover from the discontinuity
+}
+```
+
+### Android
+
+```
+import androidx.compose.runtime.*
+import com.ably.chat.Room
+import com.ably.chat.discontinuityAsFlow
+
+@Composable
+fun MyComponent(room: Room) {
+  LaunchedEffect(room) {
+    room.discontinuityAsFlow().collect { error ->
+      // Recover from the discontinuity
+      println("Discontinuity detected: $error")
+    }
+  }
+}
+```
+</Code>
+
+<If lang="javascript,kotlin">
+Use the `off()` function returned in the `onDiscontinuity()` response to remove a listener:
+</If>
+
+
+
+<If lang="javascript,kotlin">
+<Code>
+
+### Javascript
+
+```
+off();
+```
+
+### Kotlin
+
+```
+off()
+```
+</Code>
+</If>
+
+<If lang="javascript,swift,kotlin">
+The discontinuity handler is accessible via the <If lang="javascript">[Room](https://ably.com/docs/chat/api/javascript/room.md#onDiscontinuity)</If><If lang="swift">[Room](https://sdk.ably.com/builds/ably/ably-chat-swift/main/AblyChat/documentation/ablychat/room)</If><If lang="kotlin">[Room](https://sdk.ably.com/builds/ably/ably-chat-kotlin/main/dokka/chat/com.ably.chat/-room/index.html)</If> object.
+</If>
+
+## Related Topics
+
+- [SDK setup](https://ably.com/docs/chat/setup.md): Install, authenticate and instantiate the Chat SDK.
+- [Authentication](https://ably.com/docs/chat/authentication.md): Configure authentication for Chat applications with the required capabilities.
+- [Rooms](https://ably.com/docs/chat/rooms.md): Use rooms to organize your users and chat messages.
+- [Integrations](https://ably.com/docs/chat/integrations.md): Ably Chat integrations with external services.
+
+## Documentation Index
+
+To discover additional Ably documentation:
+
+1. Fetch [llms.txt](https://ably.com/llms.txt) for the canonical list of available pages.
+2. Identify relevant URLs from that index.
+3. Fetch target pages as needed.
+
+Avoid using assumed or outdated documentation paths.

@@ -1,0 +1,67 @@
+# AWS Lambda
+
+The AWS Lambda integration is a powerful way to add a custom moderation solution to Ably Chat. It enables you to run custom moderation logic or integrate with your preferred moderation provider by configuring an AWS Lambda function that will be invoked before messages are published to a chat room.
+
+This integration is particularly useful when you want to:
+
+* Integrate with a custom moderation service
+* Implement your own moderation logic
+* Use a moderation provider that isn't directly supported by Ably
+
+## Integration setup 
+
+Configure the integration in your [Ably dashboard](https://ably.com/accounts/any/apps/any/integrations) or using the [Control API](https://ably.com/docs/platform/account/control-api.md).
+
+The following fields are specific to the Lambda transport. You can also configure the [general fields](https://ably.com/docs/chat/moderation/custom.md#configuration).
+
+| Field | Description |
+| ----- | ----------- |
+| AWS region | The region where your Lambda function is deployed. |
+| Function name | The name of your AWS Lambda function. |
+| AWS authentication scheme | The authentication method to use. Either `AWS Credentials` or `ARN of an assumable role`. See the [Ably AWS authentication documentation](docs/integrations/webhooks/lambda#aws-authentication). |
+
+
+## Lambda-specific response 
+
+When invoking Lambda functions, the response code received is from the Lambda runtime, not a response code specific to your function. Therefore, for Lambda transports, the standard response format is wrapped to give you the ability to specify a status code in your response. The lambda-specific response is as follows:
+
+<Code>
+
+### Json
+
+```
+{
+  "statusCode": "integer",
+  "body": "{\"action\": \"accept|reject\", \"rejectionDetail\": {\"key\": \"string\"}}"
+}
+```
+</Code>
+
+* `statusCode`: The HTTP status code of the response
+* `body`: A JSON string that is the serialization of the standard moderation response.
+
+## Best practice 
+
+When implementing your Lambda function, consider the following:
+
+* Keep your function execution time as low as possible to minimize latency.
+* Implement proper error handling and logging.
+* Consider implementing rate limiting if you're using a third-party moderation service.
+* Use appropriate IAM roles and permissions for your Lambda function.
+* Consider implementing caching for recurring content.
+* Monitor the API request and integration error logs in the Ably dashboard to view errors .from your integration.
+
+## Related Topics
+
+- [API overview](https://ably.com/docs/chat/moderation/custom.md): Detect and remove unwanted content in a Chat Room using a custom provider
+- [Webhook](https://ably.com/docs/chat/moderation/custom/webhook.md): Detect and remove unwanted content in a Chat Room using a custom webhook endpoint.
+
+## Documentation Index
+
+To discover additional Ably documentation:
+
+1. Fetch [llms.txt](https://ably.com/llms.txt) for the canonical list of available pages.
+2. Identify relevant URLs from that index.
+3. Fetch target pages as needed.
+
+Avoid using assumed or outdated documentation paths.

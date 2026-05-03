@@ -1,0 +1,311 @@
+# Styling Ably Chat UI React Kit
+
+# Component Styling 
+
+This guide explains how to style and customize the appearance of components in the Ably Chat React UI Kit, both with and without Tailwind CSS.
+
+## Basic Styling Approach 
+
+The Ably Chat React UI Kit uses Tailwind CSS for styling components, this gives you a utility-first approach to styling, allowing you to apply styles directly in your JSX using Tailwind's utility classes.
+This approach is designed to be straightforward to use, but does limit the ability to override styles at a granular level.
+
+### CSS Import 
+
+The kit comes with pre-compiled CSS that you can import directly into your application:
+
+<Code>
+
+#### React
+
+```
+// Import the pre-compiled CSS
+import '@ably/chat-react-ui-kit/dist/style.css';
+```
+</Code>
+
+This CSS file contains all the necessary styles for the components, compiled from the Tailwind utility classes used in the component code. You don't need to install Tailwind CSS in your project to use these components.
+
+### Light and Dark Mode 
+
+The kit supports both light and dark modes through the `ThemeProvider` which automatically applies the appropriate CSS classes to enable light or dark mode styling.
+
+With the `useTheme` hook, you can access and change the current theme:
+
+<Code>
+
+#### React
+
+```
+import { useTheme } from '@ably/chat-react-ui-kit';
+
+function ThemeToggle() {
+  const { theme, toggleTheme } = useTheme();
+
+  return (
+    <button onClick={toggleTheme}>
+      Current theme: {theme}
+    </button>
+  );
+}
+```
+</Code>
+
+## Styling Options 
+
+### For Users With Tailwind CSS 
+
+If your project already uses Tailwind CSS, you have several options for customizing component styles:
+
+#### 1. Using the `className` prop with Tailwind classes 
+
+Most components accept a `className` prop that allows you to add custom Tailwind utility classes where appropriate:
+
+<Code>
+
+##### React
+
+```
+<ChatWindow
+  roomName="general"
+  className="my-custom-chat-window border-red-500"
+/>
+
+<ChatMessage
+  className="rounded-lg shadow-xl hover:shadow-2xl transition-shadow duration-300"
+/>
+```
+</Code>
+
+This approach lets you use Tailwind to add or override styles at a component level. The components use `clsx` internally to merge your custom classes with the default ones.
+
+#### 2. Targeting specific parts with more specific selectors 
+
+You can create more specific CSS selectors in your own stylesheet to target internal elements of components:
+
+<Code>
+
+##### Css
+
+```
+/* In your custom CSS file */
+.my-custom-chat .relative.flex.items-start.gap-2 {
+  /* Target the message container */
+  margin-bottom: 2rem;
+}
+
+.my-custom-chat .bg-gray-900 {
+  /* Target the message bubble for own messages */
+  background-color: theme('colors.blue.700');
+}
+```
+</Code>
+
+Then apply your custom class to the parent container:
+
+<Code>
+
+##### React
+
+```
+<div className="my-custom-chat">
+  <ChatMessageList messages={messages} />
+</div>
+```
+</Code>
+
+#### 3. Compile the package with your Tailwind build 
+
+The package ships its raw `.tsx` files, you can let Tailwind process those files alongside your own code.
+
+##### Step 1 – Remove the pre-built stylesheet 
+
+<Code>
+
+###### React
+
+```
+// ❌ import '@ably/chat-react-ui-kit/dist/style.css';
+```
+</Code>
+
+##### Step 2 – Tell Tailwind to scan the library source 
+
+<Code>
+
+###### Js
+
+```
+// tailwind.config.ts
+import type { Config } from 'tailwindcss';
+
+const config: Config = {
+  content: [
+    './src/**/*.{js,ts,jsx,tsx}',
+    './index.html',
+    './node_modules/@ably/chat-react-ui-kit/src/**/*.{js,ts,jsx,tsx}',
+  ],
+};
+
+export default config;
+```
+</Code>
+
+##### Step 3 – Ensure you have a Tailwind entry file 
+
+Create a file named `index.css` in your project (or use an existing one) and add the Tailwind directives:
+
+<Code>
+
+###### Javascript
+
+```
+/* src/index.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+```
+</Code>
+
+Import that file once in your app entry (`main.tsx` or `index.tsx`) and you're good to go.
+
+### For Users Without Tailwind CSS 
+
+If you're not using Tailwind CSS in your project, you still have some options:
+
+#### 1. Importing the pre-compiled CSS 
+
+The simplest approach is to import the pre-compiled CSS file that comes with the kit:
+
+<Code>
+
+##### React
+
+```
+import '@ably/chat-react-ui-kit/dist/style.css';
+```
+</Code>
+
+This CSS file contains all the necessary styles for the components, compiled from the Tailwind utility classes used in the component code.
+
+#### 2. Using the `className` prop with your own CSS classes 
+
+You can add your own CSS classes to the component using the `className` prop:
+
+<Code>
+
+##### React
+
+```
+<ChatMessage
+  message={message}
+  className="my-custom-message"
+  onEdit={handleEdit}
+  onDelete={handleDelete}
+/>
+```
+</Code>
+
+Then define your custom styles in your CSS file:
+
+<Code>
+
+##### Javascript
+
+```
+/* In your CSS file */
+.my-custom-message {
+  margin-bottom: 1.5rem;
+  transition: transform 0.2s ease;
+}
+
+.my-custom-message:hover {
+  transform: translateY(-2px);
+}
+```
+</Code>
+
+#### 3. Using CSS overrides with more specific selectors 
+
+You can override the default styles by using more specific CSS selectors:
+
+<Code>
+
+##### Javascript
+
+```
+/* In your CSS file */
+.chat-container .relative.flex.items-start.gap-2 {
+  /* Target the message container */
+  border-left: 3px solid #3b82f6;
+  padding-left: 8px;
+}
+
+/* Target own messages vs other messages */
+.chat-container .flex-row-reverse .relative.px-4.py-2.rounded-2xl {
+  background-color: #3b82f6; /* Custom blue for own messages */
+}
+
+.chat-container .flex-row .relative.px-4.py-2.rounded-2xl {
+  background-color: #f3f4f6; /* Custom gray for other messages */
+}
+```
+</Code>
+
+Then wrap your component with the container class:
+
+<Code>
+
+##### React
+
+```
+<div className="chat-container">
+  <ChatMessageList messages={messages} />
+</div>
+```
+</Code>
+
+## Light and Dark Mode Support 
+
+Regardless of whether you use Tailwind, the components support light and dark modes through the `ThemeProvider`:
+
+<Code>
+
+### React
+
+```
+import { ThemeProvider } from '@ably/chat-react-ui-kit';
+
+<ThemeProvider options={{ defaultTheme: 'dark' }}>
+  <ChatWindow roomName="general" />
+</ThemeProvider>
+```
+</Code>
+
+Components automatically adapt to the current theme, with different styles for light and dark modes. The dark mode styles use Tailwind's dark variant classes like `dark:bg-gray-800` and `dark:text-gray-100`.
+
+## Future Styling Improvements 
+
+The UI components are still in early active development, we are planning to enhance the theming and customization capabilities in future releases:
+
+- Full theming support with customizable color palettes
+- Component-level style overrides through a theme context
+- Additional theme variants beyond light/dark (e.g., high contrast)
+- Custom user/brand theming options
+- More granular control over component styles via props or context
+
+## Related Topics
+
+- [Overview](https://ably.com/docs/chat/react-ui-kit.md): Learn more about the Ably Chat React UI Kit and how to use it to quickly build chat interfaces in your React applications.
+- [Setup](https://ably.com/docs/chat/react-ui-kit/setup.md): Install, configure and instantiate the Chat React UI Kit.
+- [Providers and Hooks](https://ably.com/docs/chat/react-ui-kit/providers.md): Comprehensive documentation for the Ably Chat React UI Kits providers and hooks
+- [Components](https://ably.com/docs/chat/react-ui-kit/components.md): Comprehensive documentation for the Ably Chat React UI Kit.
+
+## Documentation Index
+
+To discover additional Ably documentation:
+
+1. Fetch [llms.txt](https://ably.com/llms.txt) for the canonical list of available pages.
+2. Identify relevant URLs from that index.
+3. Fetch target pages as needed.
+
+Avoid using assumed or outdated documentation paths.

@@ -1,0 +1,638 @@
+# Objects
+
+<If lang="javascript">
+  <Aside data-type='note'>
+  **Building with LiveObjects?** Help shape its future by [sharing your use case](https://44qpp.share.hsforms.com/2fZobHQA1ToyRfB9xqZYQmQ).
+  </Aside>
+</If>
+<If lang="swift">
+  <Aside data-type='experimental'>
+  LiveObjects Swift is currently Experimental. Its features are still in development and subject to rapid change.
+
+  **Building with LiveObjects?** Help shape its future by [sharing your use case](https://44qpp.share.hsforms.com/2fZobHQA1ToyRfB9xqZYQmQ).
+  </Aside>
+</If>
+<If lang="java">
+  <Aside data-type='experimental'>
+  LiveObjects Java is currently Experimental. Its features are still in development and subject to rapid change.
+
+  **Building with LiveObjects?** Help shape its future by [sharing your use case](https://44qpp.share.hsforms.com/2fZobHQA1ToyRfB9xqZYQmQ).
+  </Aside>
+</If>
+
+LiveObjects enables you to store shared data as "objects" on a channel, allowing your application data to be synchronized across multiple users and devices in realtime. This document explains the key concepts you need to know when working with objects.
+
+## Primitive types 
+
+Primitive types are the fundamental data types that can be stored in a collection type. Currently, the only supported collection type is a [LiveMap](https://ably.com/docs/liveobjects/map.md).
+
+LiveObjects supports the following primitive types:
+
+<If lang="javascript">
+* `string`
+* `number`
+* `boolean`
+* `bytes`
+* JSON arrays or objects
+
+<Aside data-type='note'>
+`number` is a double-precision floating-point number, which is the same as JavaScript's [`number`](https://developer.mozilla.org/en-US/docs/Glossary/Number) type.
+</Aside>
+</If>
+
+<If lang="swift">
+* `String`
+* `Double`
+* `Bool`
+* `Data`
+* JSON arrays or objects
+</If>
+
+<If lang="java">
+* `String`
+* `Number` (Double, Integer, Float, etc.)
+* `Boolean`
+* `byte[]` (binary data)
+* JSON arrays or objects (`JsonArray`, `JsonObject`)
+</If>
+
+## Object types 
+
+LiveObjects provides specialized object types to model your application state. These object types are designed to be conflict-free and eventually consistent, meaning that all operations on them are commutative and converge to the same state across all clients.
+
+### LiveMap 
+
+[LiveMap](https://ably.com/docs/liveobjects/map.md) is a key/value data structure similar to a <If lang="javascript">dictionary or JavaScript [Map](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map)</If>
+<If lang="swift">`Dictionary`</If><If lang="java">Java `Map`</If>:
+
+* Keys must be strings
+* Values can be primitive types, JSON-serializable objects or arrays, or [references](#composability) to other objects
+* Supports `set` and `remove` operations
+* Concurrent updates to the same key are resolved using last-write-wins (LWW) semantics
+
+<Code>
+
+#### Javascript
+
+```
+// Create and assign a LiveMap
+await myObject.set('settings', LiveMap.create({
+  theme: 'dark',
+  notifications: true
+}));
+
+// Access via path
+const settings = myObject.get('settings');
+await settings.set('fontSize', 14);
+```
+
+#### Swift
+
+```
+// Create a LiveMap
+let userSettings = try await channel.objects.createMap()
+
+// Set primitive values
+try await userSettings.set(key: "theme", value: "dark")
+try await userSettings.set(key: "notifications", value: true)
+```
+
+#### Java
+
+```
+// Create a LiveMap
+LiveMap userSettings = channel.getObjects().createMap();
+
+// Set primitive values
+userSettings.set("theme", LiveMapValue.of("dark"));
+userSettings.set("notifications", LiveMapValue.of(true));
+```
+</Code>
+
+### LiveCounter 
+
+[LiveCounter](https://ably.com/docs/liveobjects/counter.md) is a numeric counter type:
+
+* The value is a double-precision floating-point number
+* Supports `increment` and `decrement` operations
+
+<Code>
+
+#### Javascript
+
+```
+// Create and assign a LiveCounter
+await myObject.set('visits', LiveCounter.create(0));
+
+// Access via path
+const visits = myObject.get('visits');
+await visits.increment(1);
+```
+
+#### Swift
+
+```
+// Create a LiveCounter
+let visitsCounter = try await channel.objects.createCounter();
+
+// Increment the counter
+try await visitsCounter.increment(amount: 1);
+```
+
+#### Java
+
+```
+// Create a LiveCounter
+LiveCounter visitsCounter = channel.getObjects().createCounter();
+
+// Increment the counter
+visitsCounter.increment(1);
+```
+</Code>
+
+<If lang="javascript">
+## Channel object 
+
+The channel object is a special `LiveMap` instance which:
+
+* Implicitly exists on a channel and does not need to be created explicitly
+* Has the special [objectId](#object-ids) of `root`
+* Cannot be deleted
+* Serves as the [entry point](#reachability) for accessing all other objects on a channel
+
+Access the channel object using `channel.object.get()`, which returns a [PathObject](https://ably.com/docs/liveobjects/concepts/path-object.md) that resolves to the root `LiveMap`:
+
+<Code>
+
+### Javascript
+
+```
+// Get the channel object.
+// This implicitly attaches to the channel if not already attached.
+// The promise resolves when the channel object data has been synchronized to the client.
+const myObject = await channel.object.get();
+
+// Use it like any other LiveMap
+await myObject.set('app-version', '1.0.0');
+await myObject.set('config', LiveMap.create({
+  apiUrl: 'https://api.example.com'
+}));
+```
+</Code>
+
+<Aside data-type='note'>
+Calling `channel.object.get()` implicitly attaches to the channel if not already attached and waits for the LiveObjects state to [synchronize](https://ably.com/docs/liveobjects/concepts/synchronization.md).
+</Aside>
+
+## PathObject 
+
+[`PathObject`](https://ably.com/docs/liveobjects/concepts/path-object.md) provides a path-based API for interacting with objects at specific locations. The path is evaluated when a method is called, resolving to whatever instance exists at that location:
+
+<Code>
+
+### Javascript
+
+```
+// Get the channel object
+const myObject = await channel.object.get();
+
+// Navigate to nested paths
+const theme = myObject.get('settings').get('theme');
+
+// The path evaluates to an object instance when you call a method on it
+await myObject.get('visits').increment(5);
+await myObject.get('settings').set('notifications', true);
+```
+</Code>
+
+Use `PathObject` for:
+- Location-based operations (most common use case)
+- Resilient code that works regardless of instance replacements
+- Simple navigation through your data structure
+
+See the [PathObject documentation](https://ably.com/docs/liveobjects/concepts/path-object.md) for details.
+
+## Instance 
+
+[`Instance`](https://ably.com/docs/liveobjects/concepts/instance.md) provides direct access to a specific object instance, which is identified by a unique [object ID](https://ably.com/docs/liveobjects/concepts/objects.md#object-ids).
+
+<Code>
+
+### Javascript
+
+```
+// Get the channel object
+const myObject = await channel.object.get();
+
+// Navigate to nested paths and get the instance
+const theme = myObject.get('settings').get('theme').instance();
+
+// Work directly with the instance
+await myObject.get('visits').instance()?.increment(5);
+await myObject.get('settings').instance()?.set('notifications', true);
+```
+</Code>
+
+Use `Instance` for:
+- Tracking specific objects as they move through your data structure
+- Detecting when a specific object is deleted
+
+See the [Instance documentation](https://ably.com/docs/liveobjects/concepts/instance.md) for details.
+
+</If>
+
+<If lang="swift,java">
+### Root object 
+
+The root object is a special `LiveMap` instance which:
+
+* Implicitly exists on a channel and does not need to be created explicitly
+* Has the special [objectId](#object-ids) of `root`
+* Cannot be deleted
+* Serves as the [entry point](#reachability) for accessing all other objects on a channel
+
+Access the root object using the `getRoot()` function:
+
+<Code>
+
+#### Swift
+
+```
+// Get the Root Object
+let root = try await channel.objects.getRoot()
+
+// Use it like any other LiveMap
+try await root.set(key: "app-version", value: "1.0.0")
+```
+
+#### Java
+
+```
+// Get the Root Object
+LiveMap root = channel.getObjects().getRoot();
+
+// Use it like any other LiveMap
+root.set("app-version", LiveMapValue.of("1.0.0"));
+```
+</Code>
+</If>
+
+
+## Composability 
+
+LiveObjects enables you to build complex, hierarchical data structures through composability.
+
+Specifically, a [LiveMap](https://ably.com/docs/liveobjects/map.md) can store references to other `LiveMap` or `LiveCounter` object instances as values. This allows you to create nested hierarchies of data.
+
+<Code>
+
+### Javascript
+
+```
+// Create a nested structure in a single operation
+await myObject.set('profile', LiveMap.create({
+  name: 'Alice',
+  preferences: LiveMap.create({
+    theme: 'dark',
+    fontSize: 14
+  }),
+  activity: LiveCounter.create(0)
+}));
+
+// Resulting structure:
+// myObject (LiveMap - channel object)
+// └── profile (LiveMap)
+//     ├── name: "Alice" (string)
+//     ├── preferences (LiveMap)
+//     │   ├── theme: "dark" (string)
+//     │   └── fontSize: 14 (number)
+//     └── activity (LiveCounter)
+
+// Access and update nested values via paths
+await myObject.get('profile').get('activity').increment(5);
+await myObject.get('profile').get('preferences').set('theme', 'light');
+```
+
+### Swift
+
+```
+// Create LiveObjects
+let profileMap = try await channel.objects.createMap()
+let preferencesMap = try await channel.objects.createMap()
+let activityCounter = try await channel.objects.createCounter()
+
+// Build a composite structure
+try await preferencesMap.set(key: "theme", value: "dark")
+try await profileMap.set(key: "preferences", value: .liveMap(preferencesMap))
+try await profileMap.set(key: "activity", value: .liveCounter(activityCounter))
+try await root.set(key: "profile", value: .liveMap(profileMap))
+
+// Resulting structure:
+// root (LiveMap)
+// └── profile (LiveMap)
+//     ├── preferences (LiveMap)
+//     │   └── theme: "dark" (string)
+//     └── activity (LiveCounter)
+```
+
+### Java
+
+```
+// Create LiveObjects
+LiveMap profileMap = channel.getObjects().createMap();
+LiveMap preferencesMap = channel.getObjects().createMap();
+LiveCounter activityCounter = channel.getObjects().createCounter();
+
+// Build a composite structure
+preferencesMap.set("theme", LiveMapValue.of("dark"));
+profileMap.set("preferences", LiveMapValue.of(preferencesMap));
+profileMap.set("activity", LiveMapValue.of(activityCounter));
+root.set("profile", LiveMapValue.of(profileMap));
+
+// Resulting structure:
+// root (LiveMap)
+// └── profile (LiveMap)
+//     ├── preferences (LiveMap)
+//     │   └── theme: "dark" (string)
+//     └── activity (LiveCounter)
+```
+</Code>
+
+<Aside data-type='note'>
+Internally, a `LiveMap` instance only stores a _reference_ to another object (by its [object ID](#object-ids)), rather than the value of the nested object itself. <If lang="javascript">When using a client SDK, object references are automatically resolved when resolving paths using the [PathObject](https://ably.com/docs/liveobjects/concepts/path-object.md), or when navigating the object tree using the `Instance.get()` [method](https://ably.com/docs/liveobjects/concepts/instance.md#get).</If><If lang="swift,java">When using a client SDK, object references are automatically resolved when using the `get()` [method](https://ably.com/docs/liveobjects/map.md#get).</If>
+</Aside>
+
+<If lang="swift,java">
+It is possible for the same object instance to be accessed from multiple places in your object tree:
+
+<Code>
+
+### Swift
+
+```
+// Create a counter
+let counter = try await channel.objects.createCounter()
+
+// Create two different maps
+let mapA = try await channel.objects.createMap()
+let mapB = try await channel.objects.createMap()
+try await root.set(key: "a", value: .liveMap(mapA))
+try await root.set(key: "b", value: .liveMap(mapB))
+
+// Reference the same counter from both maps
+try await mapA.set(key: "count", value: .liveCounter(counter))
+try await mapB.set(key: "count", value: .liveCounter(counter))
+
+// The counter referenced from each location shows the same
+// value, since they refer to the same underlying counter
+try mapA.get(key: "count")?.liveCounterValue?.subscribe { _, _ in
+    do {
+        let value = try mapA.get(key: "count")?.liveCounterValue?.value
+        print(String(describing: value)) // 1
+    } catch {
+        // Error not relevant here
+    }
+}
+try mapB.get(key: "count")?.liveCounterValue?.subscribe { _, _ in
+    do {
+        let value = try mapB.get(key: "count")?.liveCounterValue?.value
+        print(String(describing: value)) // 1
+    } catch {
+        // Error not relevant here
+    }
+}
+
+// Increment the counter
+try await counter.increment(amount: 1)
+```
+
+### Java
+
+```
+// Create a counter
+LiveCounter counter = channel.getObjects().createCounter();
+
+// Create two different maps
+LiveMap mapA = channel.getObjects().createMap();
+LiveMap mapB = channel.getObjects().createMap();
+root.set("a", LiveMapValue.of(mapA));
+root.set("b", LiveMapValue.of(mapB));
+
+// Reference the same counter from both maps
+mapA.set("count", LiveMapValue.of(counter));
+mapB.set("count", LiveMapValue.of(counter));
+
+// The counter referenced from each location shows the same
+// value, since they refer to the same underlying counter
+mapA.get("count").asLiveCounter().subscribe((counterUpdate) -> {
+    System.out.println(mapA.get("count").asLiveCounter().value()); // 1.0
+});
+mapB.get("count").asLiveCounter().subscribe((counterUpdate) -> {
+    System.out.println(mapB.get("count").asLiveCounter().value()); // 1.0
+});
+
+// Increment the counter
+counter.increment(1);
+```
+</Code>
+
+It is also possible that object references form a cycle:
+
+<Code>
+
+### Swift
+
+```
+// Create two different maps
+let mapA = try await channel.objects.createMap()
+let mapB = try await channel.objects.createMap()
+
+// Set up a circular reference
+try await mapA.set(key: "ref", value: .liveMap(mapB))
+try await mapB.set(key: "ref", value: .liveMap(mapA))
+
+// Add one map to root (both are now reachable)
+try await root.set(key: "a", value: .liveMap(mapA))
+
+// We can traverse the cycle
+_ = try root.get(key: "a")? // mapA
+    .liveMapValue?.get(key: "ref")? // mapB
+    .liveMapValue?.get(key: "ref") // mapA
+```
+
+### Java
+
+```
+// Create two different maps
+LiveMap mapA = channel.getObjects().createMap();
+LiveMap mapB = channel.getObjects().createMap();
+
+// Set up a circular reference
+mapA.set("ref", LiveMapValue.of(mapB));
+mapB.set("ref", LiveMapValue.of(mapA));
+
+// Add one map to root (both are now reachable)
+root.set("a", LiveMapValue.of(mapA));
+
+// We can traverse the cycle
+LiveMap result = root.get("a").asLiveMap() // mapA
+    .get("ref").asLiveMap()                // mapB
+    .get("ref").asLiveMap();               // mapA
+```
+</Code>
+</If>
+
+## Reachability 
+
+All objects must be reachable from the channel object (directly or indirectly). Objects that cannot be reached from the channel object will eventually [be deleted](https://ably.com/docs/liveobjects/lifecycle.md#objects-deleted).
+
+<If lang="javascript">
+When you replace or remove an object reference, it may become unreachable and will eventually be [deleted](https://ably.com/docs/liveobjects/lifecycle.md#objects-deleted):
+
+<Code>
+
+### Javascript
+
+```
+// Create and assign a counter
+await myObject.set('visits', LiveCounter.create(0));
+
+// Get the counter instance to track it
+const oldCounter = myObject.get('visits').instance();
+
+if (oldCounter) {
+  oldCounter.subscribe(({ object, message }) => {
+    if (message?.operation.action === 'object.delete') {
+      console.log('Counter was deleted');
+    }
+  });
+
+  // Replace with a new counter - old counter becomes unreachable
+  await myObject.set('visits', LiveCounter.create(0));
+  // The subscription will fire with the delete notification
+}
+```
+</Code>
+</If>
+
+<If lang="swift,java">
+In the example below, the only reference to the `counterOld` object is replaced on the `root`. This makes `counterOld` unreachable and it will eventually be [deleted](https://ably.com/docs/liveobjects/lifecycle.md#objects-deleted).
+
+<Code>
+
+### Swift
+
+```
+// Create a counter and reference it from the root
+let counterOld = try await channel.objects.createCounter()
+try await root.set(key: "myCounter", value: .liveCounter(counterOld))
+
+// counterOld will eventually be deleted
+counterOld.on(event: .deleted) { _ in
+    print("counterOld has been deleted and can no longer be used")
+}
+
+// Create a new counter and replace the old one referenced from the root
+let counterNew = try await channel.objects.createCounter()
+try await root.set(key: "myCounter", value: .liveCounter(counterNew))
+```
+
+### Java
+
+```
+// Create a counter and reference it from the root
+LiveCounter counterOld = channel.getObjects().createCounter();
+root.set("myCounter", LiveMapValue.of(counterOld));
+
+// counterOld will eventually be deleted
+counterOld.on(ObjectLifecycleEvent.DELETED, (lifecycleEvent) -> {
+    System.out.println("counterOld has been deleted and can no longer be used");
+});
+
+// Create a new counter and replace the old one referenced from the root
+LiveCounter counterNew = channel.getObjects().createCounter();
+root.set("myCounter", LiveMapValue.of(counterNew));
+```
+</Code>
+</If>
+
+<Aside data-type='note'>
+When an object becomes unreachable or a map entry is removed, it becomes a [tombstone](#tombstones).
+</Aside>
+
+## Metadata 
+
+Objects include metadata that helps with synchronization, conflict resolution and managing the object lifecycle.
+
+<Aside data-type='note'>
+When using a client library, metadata is handled internally. However, this information can be helpful when working directly with the [REST API](https://ably.com/docs/liveobjects/rest-api-usage.md).
+</Aside>
+
+### Object IDs 
+
+Every object has a unique identifier that distinguishes it from all other objects.
+
+<If lang="javascript">
+You can access an object's ID using the [Instance](https://ably.com/docs/liveobjects/concepts/instance.md) API:
+
+<Code>
+
+#### Javascript
+
+```
+const counterInstance = myObject.get('visits').instance();
+
+if (counterInstance) {
+  const objectId = counterInstance.id();
+  console.log('Object ID:', objectId);
+  // e.g., "counter:J7x6mAF8X5Ha60VBZb6GtXSgnKJQagNLgadUlgICjkk@1734628392000"
+}
+```
+</Code>
+</If>
+
+Object IDs are opaque strings that uniquely identify each object instance. The client library automatically manages object IDs and allows you to work with object references directly. However, you may specify object IDs explicitly when using the [REST API](https://ably.com/docs/liveobjects/rest-api-usage.md).
+
+### Tombstones 
+
+Tombstones are markers indicating an object or map entry has been deleted.
+
+<If lang="javascript">
+* A tombstone is created for an object when it becomes [unreachable](#reachability) from the channel object.
+* A tombstone is created for a map entry when it is [removed](https://ably.com/docs/liveobjects/map.md#remove)
+</If>
+
+<If lang="swift,java">
+* A tombstone is created for an object when it becomes [unreachable](#reachability) from the root object.
+* A tombstone is created for a map entry when it is [removed](https://ably.com/docs/liveobjects/map.md#remove)
+</If>
+
+Tombstones protect against lagging clients from re-introducing a deleted value, ensuring all clients eventually converge on the same state. They are eventually garbage collected after a safe period of time.
+
+### Timeserials 
+
+When an operation message is published it is assigned a unique logical timestamp called a "timeserial".
+
+This timeserial is stored on map entries in order to implement last-write-wins conflict resolution semantics.
+
+Additionally, all objects store the timeserial of the last operation that was applied to the object. Since Ably operates fully independent data centers, these timeserials are stored on a per-site basis.
+
+Timeserial metadata is used for internal purposes and is not directly exposed in client libraries. However, it can be viewed using the [REST API](https://ably.com/docs/liveobjects/rest-api-usage.md).
+
+## Related Topics
+
+- [PathObject](https://ably.com/docs/liveobjects/concepts/path-object.md): Learn about PathObject, a path-based API for accessing and manipulating LiveObjects data structures
+- [Instance](https://ably.com/docs/liveobjects/concepts/instance.md): Learn about Instance, a reference to a specific LiveObject instance for direct manipulation
+- [Operations](https://ably.com/docs/liveobjects/concepts/operations.md): Learn how objects are updated by operations in Ably LiveObjects.
+- [Synchronization](https://ably.com/docs/liveobjects/concepts/synchronization.md): Learn how data is synchronized between clients.
+- [Billing](https://ably.com/docs/liveobjects/concepts/billing.md): Understand how LiveObjects operations contribute to your Ably usage and billing.
+
+## Documentation Index
+
+To discover additional Ably documentation:
+
+1. Fetch [llms.txt](https://ably.com/llms.txt) for the canonical list of available pages.
+2. Identify relevant URLs from that index.
+3. Fetch target pages as needed.
+
+Avoid using assumed or outdated documentation paths.

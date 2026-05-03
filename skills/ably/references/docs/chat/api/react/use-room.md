@@ -1,0 +1,165 @@
+# useRoom
+
+The `useRoom` hook provides access to room information and basic room operations such as manually attaching and detaching.
+
+<Code>
+
+#### React
+
+```
+import { useRoom } from '@ably/chat/react';
+
+const MyComponent = () => {
+  const { roomName, roomStatus } = useRoom();
+  return <p>Room: {roomName} ({roomStatus})</p>;
+};
+```
+</Code>
+
+This hook must be used within a [`ChatRoomProvider`](https://ably.com/docs/chat/api/react/providers.md#chatRoomProvider).
+
+<Aside data-type='note'>
+The `ChatRoomProvider` automatically handles room attachment and detachment. The `attach` and `detach` methods are only needed for manual lifecycle control.
+</Aside>
+
+## Parameters 
+
+The `useRoom` hook accepts an optional configuration object:
+
+<Table id='UseRoomParams'>
+
+| Parameter | Required | Description | Type |
+| --- | --- | --- | --- |
+| onStatusChange | Optional | A callback invoked when the room status changes. Removed when the component unmounts. | [RoomStatusChange](#roomStatusChange) |
+| onConnectionStatusChange | Optional | A callback invoked when the connection status changes. Removed when the component unmounts. | [ConnectionStatusChange](https://ably.com/docs/chat/api/react/use-chat-connection.md#connectionStatusChange) |
+
+</Table>
+
+## Returns 
+
+The `useRoom` hook returns an object with the following properties:
+
+<Table id='UseRoomResponse'>
+
+| Property | Description | Type |
+| --- | --- | --- |
+| roomName | The unique identifier of the room. | String |
+| roomStatus | The current status of the room, kept up to date by the hook. | [RoomStatus](#roomStatus) |
+| roomError | An error object if the room is in an errored state. | [ErrorInfo](https://ably.com/docs/chat/api/react/providers.md#errorInfo) or Undefined |
+| connectionStatus | The current connection status, kept up to date by the hook. | [ConnectionStatus](https://ably.com/docs/chat/api/react/use-chat-connection.md#connectionStatus) |
+| connectionError | An error object if there is a connection error. | [ErrorInfo](https://ably.com/docs/chat/api/react/providers.md#errorInfo) or Undefined |
+| attach | Manually attach to the room. | [attach()](#attach) |
+| detach | Manually detach from the room. | [detach()](#detach) |
+
+</Table>
+
+## Attach to a room 
+
+`attach(): Promise<void>`
+
+Attach to the room to start receiving messages and events. The `ChatRoomProvider` handles this automatically; this method is only needed for manual lifecycle control.
+
+### Returns 
+
+`Promise<void>`
+
+Returns a promise. The promise is fulfilled when the room is attached, or rejected with an [`ErrorInfo`](https://ably.com/docs/chat/api/react/providers.md#errorInfo) object.
+
+## Detach from a room 
+
+`detach(): Promise<void>`
+
+Detach from the room to stop receiving messages and events. Existing subscriptions are preserved but will not receive events until the room is re-attached. The `ChatRoomProvider` handles this automatically; this method is only needed for manual lifecycle control.
+
+### Returns 
+
+`Promise<void>`
+
+Returns a promise. The promise is fulfilled when the room is detached, or rejected with an [`ErrorInfo`](https://ably.com/docs/chat/api/react/providers.md#errorInfo) object.
+
+## RoomStatus 
+
+The status of a chat room.
+
+<Table id='RoomStatus'>
+
+| Status | Description |
+| --- | --- |
+| Initializing | The library is currently initializing the room. This is a temporary state used in React prior to the room being resolved. The value is `initializing`. |
+| Initialized | The room has been initialized, but no attach has been attempted yet. The value is `initialized`. |
+| Attaching | An attach has been initiated by sending a request to Ably. This is a transient status and will be followed by a transition to `Attached`, `Suspended`, or `Failed`. The value is `attaching`. |
+| Attached | The room is attached and actively receiving events. In this status, clients can publish and subscribe to messages, and enter the presence set. The value is `attached`. |
+| Detaching | A detach has been initiated on the attached room by sending a request to Ably. This is a transient status and will be followed by a transition to `Detached` or `Failed`. The value is `detaching`. |
+| Detached | The room has been detached by the client and is no longer receiving events. The value is `detached`. |
+| Suspended | The room, having previously been attached, has lost continuity. This typically occurs when the client is disconnected from Ably for more than two minutes. The client will automatically attempt to reattach when connectivity is restored. The value is `suspended`. |
+| Failed | An indefinite failure condition. This status is entered if an error is received from Ably, such as an attempt to attach without the necessary access rights. The value is `failed`. |
+| Releasing | The room is being released and its resources are being cleaned up. Attempting to use a room in this state may result in undefined behavior. The value is `releasing`. |
+| Released | The room has been released and is no longer usable. A new room instance must be obtained to continue using the room. The value is `released`. |
+
+</Table>
+
+## RoomStatusChange 
+
+Describes a change in room status.
+
+<Table id='RoomStatusChange'>
+
+| Property | Description | Type |
+| --- | --- | --- |
+| current | The new status of the room. | [RoomStatus](#roomStatus) |
+| previous | The previous status of the room. | [RoomStatus](#roomStatus) |
+| error | An error that provides a reason why the room has entered the new status, if applicable. | [ErrorInfo](https://ably.com/docs/chat/api/react/providers.md#errorInfo) or Undefined |
+
+</Table>
+
+## Example
+
+<Code>
+
+### React
+
+```
+import { RoomStatus } from '@ably/chat';
+import { useRoom } from '@ably/chat/react';
+
+function RoomHeader() {
+  const { roomName, roomStatus, roomError } = useRoom({
+    onStatusChange: (change) => {
+      console.log(`Room status: ${change.previous} -> ${change.current}`);
+    },
+  });
+
+  return (
+    <header>
+      <h2>{roomName}</h2>
+      <span>{roomStatus}</span>
+      {roomStatus === RoomStatus.Failed && roomError && (
+        <p>Error: {roomError.message}</p>
+      )}
+    </header>
+  );
+}
+```
+</Code>
+
+## Related Topics
+
+- [Providers](https://ably.com/docs/chat/api/react/providers.md): API reference for the ChatClientProvider and ChatRoomProvider components in the Ably Chat React SDK.
+- [useChatClient](https://ably.com/docs/chat/api/react/use-chat-client.md): API reference for the useChatClient hook in the Ably Chat React SDK.
+- [useChatConnection](https://ably.com/docs/chat/api/react/use-chat-connection.md): API reference for the useChatConnection hook in the Ably Chat React SDK.
+- [useMessages](https://ably.com/docs/chat/api/react/use-messages.md): API reference for the useMessages hook in the Ably Chat React SDK.
+- [usePresence](https://ably.com/docs/chat/api/react/use-presence.md): API reference for the usePresence hook in the Ably Chat React SDK.
+- [usePresenceListener](https://ably.com/docs/chat/api/react/use-presence-listener.md): API reference for the usePresenceListener hook in the Ably Chat React SDK.
+- [useOccupancy](https://ably.com/docs/chat/api/react/use-occupancy.md): API reference for the useOccupancy hook in the Ably Chat React SDK.
+- [useTyping](https://ably.com/docs/chat/api/react/use-typing.md): API reference for the useTyping hook in the Ably Chat React SDK.
+- [useRoomReactions](https://ably.com/docs/chat/api/react/use-room-reactions.md): API reference for the useRoomReactions hook in the Ably Chat React SDK.
+
+## Documentation Index
+
+To discover additional Ably documentation:
+
+1. Fetch [llms.txt](https://ably.com/llms.txt) for the canonical list of available pages.
+2. Identify relevant URLs from that index.
+3. Fetch target pages as needed.
+
+Avoid using assumed or outdated documentation paths.

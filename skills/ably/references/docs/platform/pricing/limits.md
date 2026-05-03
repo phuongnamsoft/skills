@@ -1,0 +1,160 @@
+# Limits
+
+Ably can scale effortlessly as your business grows.
+
+Limits exist in order to minimize the impact on service due to accidental or deliberate abuse of your applications. They also provide a level of protection to consumption rates if abuse does occur. If you're on the correct package for your applications and use case, then hitting a limit should be an infrequent occurrence.
+
+## Limit types 
+
+Some limits are tied to a package type. For example, the length of time that you can store messages for is dictated by which package you are on, from 1 day on a Free package up to 1 year on an Enterprise package.
+
+Other limits are more technical in nature. For example, the number of channels that a single realtime connection can be attached to, or the rate at which a single connection can publish messages.
+
+Others still are precautions against high message consumption. For example, the number of clients that can be [present](https://ably.com/docs/presence-occupancy/presence.md) on a single channel. This is because clients can change state very rapidly and the number of messages generated can be high. An example of this would be 200 clients subscribed to presence events on a channel and all of them join and leave the presence set within a few minutes. This would result in the following messages:
+
+* 200 presence messages published for the enter event.
+* 200 x 200 (40,000) messages subscribed to for the enter events.
+* 200 presence messages published for the leave event.
+* 200 x 200 (40,000) presence messages subscribed to for the leave event.
+
+This highlights the potential for 80,400 messages to be sent in a very short space of time on a single channel. There are options for [mitigating](https://ably.com/docs/presence-occupancy/presence.md#present-no-subscribe) this such as utilizing [server-side batching](https://ably.com/docs/channels.md#server-side-batching). Contact Ably to discuss increasing this limit if you think it's necessary for your use case.
+
+### View limits 
+
+1. Log in to your [account](https://ably.com/login).
+2. Select **Limits** from the **Account** menu.
+
+To view any limits that you have previously hit, click **view recent limits notifications**.
+
+## Exceeding a limit 
+
+If you exceed the limits of your package then it likely means that your app is performing well, and Ably won't penalize your success by blocking usage for the majority of limits. Normal service will continue to function beyond the limit, up to a point, for certain limits. However, Ably will contact you to let you know that you need to upgrade your package to accommodate your increased usage.
+
+Limits will come into force either because there isn't any buffer on them, or because you have exceeded the buffer. Exceeding the limit depends on the limit:
+
+* **Count-based limits**: only a set amount of resources can be in use simultaneously. This means that any usage in excess of that limit will be restricted until existing resources are removed, such as the number of concurrent connections, or concurrent channels.
+* **Rate-based limits**:  the rate at which resources can be used, expressed as their frequency per second. Usage in excess of a rate limit can be rejected locally, such as a publisher trying to publish at a rate in excess of the publish rate per channel. The publisher will have any publish attempts in excess of this rate rejected and have an error code returned. Other rate limits apply rate suppression across your account when exceeded. For example, if the limit for publishing messages into a queue is exceeded by twice the rate, then each message will have a 50% chance of being rejected. The suppression probability is continuously updated based on the publishing rate.
+
+<Aside data-type='important'>
+[Contact us](https://ably.com/support) to discuss a limit that needs adjusting to fit your use case, or needs.
+</Aside>
+
+Email notifications are sent out when you are nearing a limit, as well as when you have exceeded it. You will also see these notifications in your [account dashboard](https://ably.com/accounts/any) and can view any limits that you have previously exceeded.
+
+## Application limits 
+
+Application limits relate to the quantity of resources that can be created per account.
+
+| Application limit | Free | Standard | Pro | Enterprise |
+| ----------------- | ---- | -------- | --- | ---------- |
+| **Number of apps (per account)**<p>*the maximum number of applications that can be created per account*</p> | 100 | 100 | 100 | 100 |
+| **Number of API keys (per account)**<p>*the maximum number of API keys that can be created per account*</p> | 100 | 100 | 100 | 100 |
+| **Number of rules (per account)**<p>*the maximum number of rules that can be created per account*</p> | 100 | 100 | 100 | 100 |
+| **Number of namespaces (per account)**<p>*the maximum number of namespaces that can be created per account*</p> | 100 | 100 | 100 | 100 |
+
+## Message limits 
+
+Message limits relate to the number, rate and bandwidth of messages consumed across you account. Message count limits and data transfer (bandwidth) limits are enforced separately - exceeding one does not affect the other.
+
+| Message limit | Free | Standard | Pro | Enterprise |
+| ------------- | ---- | -------- | --- | ---------- |
+| **Message rate (per second)**<p>*the maximum rate at which messages can be published and received across your account each second*</p> | 500 | 2,500 | 10,000 | Unlimited |
+| **Messages (per month)**<p>*the maximum number of messages that can be sent and received across your account each month*</p> | 6,000,000 | Unlimited | Unlimited | Unlimited |
+| **Message count (per hour)**<p>*the total number of messages that can be sent across an account per hour*</p> | 250,000 | 5,208,000 | 20,833,000 | Unlimited |
+| **Message bandwidth rate (per second, KiB)**<p>*the maximum rate at which data can be transferred through messages each second, in KiB*</p> | 2,384 | 11,921 | 47,684 | Unlimited |
+| **Message bandwidth (hourly, GiB)**<p>*the maximum amount of data that can be transferred through messages each hour, in GiB*</p> | 1.2 | 24.8 | 99.3 | Unlimited |
+| **Message bandwidth (monthly, GiB)**<p>*the maximum amount of data that can be transferred through messages each month, in GiB*</p> | 28.6 | 1,192 | 4,768  | Unlimited |
+| **Max message size (KiB)**<p>*the maximum size of a single published message*</p> | 64 | 64 | 256 | 256 |
+| **Default history TTL (hours)**<p>*the default time that a message or presence message can be retrieved from history*</p> | 24 | 72 | 72 | 72 |
+| **Max history / storage TTL (days)**<p>*the maximum time that a message or presence message can be retrieved from history*</p> | 1 | 30 | 365 | 365 |
+
+## Channel limits 
+
+Channel limits relate to the number, rate and membership of [channels](https://ably.com/docs/channels.md) on your account.
+
+### Why concurrent channel limits exist 
+
+Unlike many other realtime platforms, Ably's architectural design ensures delivery of a high quality of service and continuity for clients across changing network conditions and datacenter conditions (such as scaling events, network disruption or hardware failures).
+
+In order to achieve 99.999% uptime, guaranteed message delivery, and reliable [message ordering](https://ably.com/docs/platform/architecture/message-ordering.md), Ably's system design can be considered "stateful". Every channel in the system is maintained by at least two nodes at any point in time, and in most cases many more nodes when clients connect through multiple datacenters. Ably ensures that a channel is active in each regional datacenter that has attached clients, for performance reasons and to avoid single point of failure design issues.
+
+This active management of each channel by nodes in the system allows Ably to:
+
+* Maintain [message ordering](https://ably.com/docs/platform/architecture/message-ordering.md) for each client publishing messages by using regional (datacenter) serial numbers, ensuring all messages arrive globally in the order they were published
+* Resume [connection state recovery](https://ably.com/docs/platform/architecture/connection-recovery.md) for clients that became disconnected by checking the serial numbers of the last received message by that client and retrieving all messages from RAM stored for that channel
+* Handle channel failure or intentional migration of channels between nodes without any loss of continuity
+
+The channel state that Ably maintains comes at a cost in terms of CPU and primarily RAM within the cluster. This is because every open channel is managed by at least two nodes and all messages published are stored in RAM on at least two nodes for a period of time. When clients connect to Ably using multiple datacenters and attach to shared channels, the number of server nodes managing these shared channels increases, with a corresponding increase in the number of copies of messages in RAM.
+
+Therefore, to provide the realtime platform-as-a-service economically to all customers, Ably charges customers based on the number of peak concurrent channels they use and imposes limits for package types. The peak channel limit is not the total number of channels created over time, but instead is the total number of channels simultaneously active at any point in time. Channels that are no longer in use (no clients attached and no messages being published) are closed automatically by the Ably platform.
+
+| Channel limit | Free | Standard | Pro | Enterprise |
+| ------------- | ---- | -------- | --- | ---------- |
+| **Concurrent channels**<p>*the maximum number of channels that are active simultaneously at any point*</p> | 200 | 10,000 | 50,000 | Unlimited |
+| **Default last message on channel TTL (days)**<p>*the default period that the last message on a channel is stored for, when enabled*</p> | 1 | 30 | 365 | 365 |
+| **Channel creation rate (per second)**<p>*the maximum rate at which channels can be created across an account*</p> | 42 | 250 | 500 | Custom |
+| **Message publish rate per channel (per second)**<p>*the maximum rate at which messages can be published for each channel*</p> | 50 | 50 | 50 | 50 |
+| **Message bandwidth per channel (per second)**<p>*the maximum total size of all messages published to a channel per second*</p> | 1024 KiB | 1024 KiB | 1024 KiB | 1024 KiB |
+| **Presence members per channel**<p>*the maximum number of clients that can be simultaneously present on a channel*</p> | 200 | 200 | 200 | 200 |
+| **Presence members per channel with [server-side batching](https://ably.com/docs/messages/batch.md#server-side) enabled**<p>*the maximum number of clients that can be simultaneously present on a channel when server-side batching is enabled*</p> | 200 | 5,000 | 10,000 | 20,000 |
+| **Total object size per channel(MB)**<p>*the maximum aggregate size of all objects on a channel*</p> | 6.5 | 6.5 | 6.5 | 6.5 |
+
+
+
+## Connection limits 
+
+Connection limits relate to the realtime [connections](https://ably.com/docs/connect.md) made to Ably from your account.
+
+| Connection limit | Free | Standard | Pro | Enterprise |
+| ---------------- | ---- | -------- | --- | ---------- |
+| **Concurrent connections**<p>*the maximum number of realtime clients connected to Ably simultaneously at any point*</p> | 200 | 10,000 | 50,000 | Unlimited |
+| **New connection rate (per second)**<p>*the maximum rate at which new realtime connections can be made to Ably across an account*</p> | 42 | 250 | 500 | Custom |
+| **Inbound message rate (per second)**<p>*the maximum rate at which messages can be published by a realtime connection*</p> | 50 | 50 | 50 | 50 |
+| **Outbound message rate (per second)**<p>*the maximum rate at which messages can be received by a realtime connection*</p> | 50 | 50 | 50 | 50 |
+| **Number of channels per connection**<p>*the maximum number of channels that each connection can be attached to*</p> | 200 | 200 | 200 | 200 |
+| **Connection state TTL**<p>*the maximum duration that Ably will preserve the state of a dropped connection for*</p> | 2 mins | 2 mins | 2 mins | 2 mins |
+
+## Integration limits 
+
+Integration limits relate to the rate and concurrency of [webhooks](https://ably.com/docs/platform/integrations/webhooks.md), [queues](https://ably.com/docs/platform/integrations/queues.md) and [Firehose](https://ably.com/docs/platform/integrations/streaming.md).
+
+| Integration limit | Free | Standard | Pro | Enterprise |
+| ----------------- | ---- | -------- | --- | ---------- |
+| **Integration rate (per second)**<p>*the maximum rate at which integrations can be executed, or streamed*</p> | 250 | 250 | 1,000 | Custom |
+| **Webhook concurrency**<p>*the maximum number of unbatched webhook requests that can be in-flight at any one time from a given source*</p> | 25 | 25 | 100 | Custom |
+| **Webhook batch size**<p>*the maximum number of webhook events that can be sent per batch*</p> | 50 | 100 | 100 | 100 |
+| **Webhook batch concurrency**<p>*the maximum number of webhook batches that can be processed at the same time*</p> | 1 | 1 | 1 | 1 |
+| **Max number of queues (per account)**<p>*the maximum number of queues that can be created per account*</p> | 5 | 10 | 50 | 100+ |
+| **Max queue length**<p>*the maximum number of messages that can be stored in queues whilst waiting to be consumed. This value is shared between all queues in an account*</p> | 50,000 | 50,000 | 50,000 | 50,000 |
+| **Queue publish rate (per second)**<p>*the maximum rate at which messages can be published to a queue*</p> | 250 | 250 | 1,000 | Custom |
+| **Queue TTL (hours)**<p>*the maximum time that a message is stored in a queue for, before being transferred to the dead letter queue*</p> | 24 | 24 | 24 | 24 |
+
+## API limits 
+
+API request limits are the maximum number of [REST API](https://ably.com/docs/api/rest-api.md) requests, [Control API](https://ably.com/docs/platform/account/control-api.md) requests and [token requests](https://ably.com/docs/auth/token.md) that can be made to Ably.
+
+| API request limit | Free | Standard | Pro | Enterprise |
+| ----------------- | ---- | -------- | --- | ---------- |
+| **HTTP API requests (per hour)**<p>*the maximum number of HTTP API requests that can be made to Ably per hour, excluding token requests*</p> | 25,000 | 521,000 | 2,083,300 | Custom |
+| **HTTP API request rate (per second)**<p>*the maximum rate at which HTTP API requests can be made to Ably*</p> | 50 | 362 | 1,447 | Custom |
+| **Token requests (per hour)**<p>*the maximum number of token requests that can be made to Ably per hour*</p> | 60,000 | 360,000 | 720,000 | Custom |
+| **Token request rate (per second)**<p>*the maximum rate at which token requests can be made*</p> | 50 | 250 | 500 | Custom |
+| **Control API: authenticated account requests (per hour)**<p>*the maximum number of requests that can be made to the Control API, per hour, from authenticated users*</p> | 4000 | 4000 | 4000 | 4000 |
+| **Control API: authenticated access token requests (per hour)**<p>*the maximum number of requests that can be made to the Control API, per hour, for each access token*</p> | 2000 | 2000 | 2000 | 2000 |
+| **Control API: unauthenticated requests (per hour)**<p>*the maximum number of requests that can be made to the Control API, per hour, from unauthenticated users*</p> | 60 | 60 | 60 | 60 |
+
+## Related Topics
+
+- [Overview](https://ably.com/docs/platform/pricing.md): Understand the pricing models available to you, and understand the benefits of each package type.
+- [Billing](https://ably.com/docs/platform/pricing/billing.md): Understand how invoicing and billing works for Ably packages.
+- [Pricing FAQs](https://ably.com/docs/platform/pricing/faqs.md): A list of the most commonly asked questions related to Ably pricing.
+
+## Documentation Index
+
+To discover additional Ably documentation:
+
+1. Fetch [llms.txt](https://ably.com/llms.txt) for the canonical list of available pages.
+2. Identify relevant URLs from that index.
+3. Fetch target pages as needed.
+
+Avoid using assumed or outdated documentation paths.

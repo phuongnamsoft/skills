@@ -1,0 +1,92 @@
+# About AI Transport
+
+AI Transport is a drop-in infrastructure layer for AI applications. It provides durable sessions between your agents and users, enabling reliable token streaming, multi-device continuity, and bidirectional control. It works with any AI model or framework, such as OpenAI, Anthropic, Vercel AI SDK, and LangChain.
+
+Most AI frameworks connect clients to agents using HTTP streaming. This works for simple interactions, but breaks down in production: streams fail on disconnection, sessions don't span devices, and clients have no way to interrupt or steer an agent mid-response. Teams end up building custom infrastructure to solve these problems instead of focusing on their product.
+
+AI Transport solves this by decoupling the conversation from the connection. The session persists independently, so streams resume after disconnection, any device can join, and users can cancel or redirect agents through the same session. [Read more about why AI Transport exists](https://ably.com/docs/ai-transport/why.md).
+
+AI Transport runs on Ably's [fault-tolerant](https://ably.com/docs/platform/architecture/fault-tolerance.md) and highly-available platform. The platform supports streaming data between all internet-connected devices at [low latencies](https://ably.com/docs/platform/architecture/latency.md) across the globe. Its elastic global infrastructure delivers enterprise-scale messaging that [effortlessly scales](https://ably.com/docs/platform/architecture/platform-scalability.md) to meet demand.
+
+![Before and after adding AI Transport](https://raw.githubusercontent.com/ably/docs/main/src/images/content/diagrams/ai-transport-before-and-after.png)
+
+## Get started
+
+Get started with AI Transport:
+
+<Tiles>
+{[
+  {
+    title: 'Vercel AI SDK',
+    description: 'Build with Vercel AI SDK and AI Transport in 5 minutes.',
+    image: 'icon-tech-javascript',
+    link: '[ably docs ai-transport getting-started vercel-ai-sdk](https://ably.com/docs/ai-transport/getting-started/vercel-ai-sdk.md)',
+  },
+  {
+    title: 'Core SDK',
+    description: 'Build with AI Transport\'s generic React hooks without a framework wrapper.',
+    image: 'icon-tech-javascript',
+    link: '[ably docs ai-transport getting-started core-sdk](https://ably.com/docs/ai-transport/getting-started/core-sdk.md)',
+  },
+]}
+</Tiles>
+
+## Features
+
+AI Transport provides a range of features that enable you to deliver reliable, stateful AI experiences that provide the first-class UX your users expect from modern applications. Features include:
+
+### Token streaming 
+
+Token streaming is how LLMs progressively deliver responses to users, token by token, minimizing perceived latency. AI Transport makes these streams durable and persistent. They survive tab changes, page refreshes, device switches, and temporary network loss. The Ably channel delivers each individual token to clients subscribed in realtime and automatically compacts the tokens into full LLM responses so clients do not have to re-stream the entire conversation token-by-token when they reconnect, refresh, or load history.
+
+[Read more about token streaming](https://ably.com/docs/ai-transport/features/token-streaming.md).
+
+### Reconnection and recovery 
+
+AI Transport streams survive connection drops automatically. When a client disconnects, the agent continues streaming tokens to the channel. Ably SDKs reconnect and load any messages missed during the gap, so the client resumes from exactly where it left off with no lost tokens or broken responses. For longer disconnections, clients load the full conversation from history.
+
+[Read more about reconnection and recovery](https://ably.com/docs/ai-transport/features/reconnection-and-recovery.md).
+
+### Multi-device sessions 
+
+Sessions in AI Transport are shared [Ably channels](https://ably.com/docs/channels.md), not private connections. Any device that subscribes to the channel sees every message, including user prompts, agent responses, and control signals, in real time. Users can start a conversation on their laptop and continue it on their phone. Multiple users can participate in the same session, and late joiners load the full conversation history on connect.
+
+[Read more about multi-device sessions](https://ably.com/docs/ai-transport/features/multi-device.md).
+
+### Human in the loop 
+
+Human-in-the-loop workflows use AI Transport's tool calling primitives to create approval gates. When an agent reaches a step requiring human judgment, it publishes a pending tool call. The agent pauses until any connected client approves or rejects. Because the approval request is an Ably message, it persists in history and reaches the user even after reconnecting or switching devices.
+
+[Read more about human in the loop](https://ably.com/docs/ai-transport/features/human-in-the-loop.md).
+
+### Agent presence 
+
+Agent presence provides realtime visibility into what the agent is doing by using Ably's presence feature. The agent enters presence on the channel and updates its status as it moves through the turn lifecycle: thinking, streaming, idle, or offline. All connected clients receive these updates instantly, giving you the information to display typing indicators, streaming animations, and offline badges in your UI. You can also use presence to detect when no users are connected, enabling agents to pause expensive inference and reduce costs when nobody is listening.
+
+[Read more about agent presence](https://ably.com/docs/ai-transport/features/agent-presence.md).
+
+## Pricing
+
+AI Transport uses Ably's [usage based billing model](https://ably.com/docs/platform/pricing.md) at your package rates. Your consumption costs will depend on the number of messages inbound (published to Ably) and outbound (delivered to subscribers), and how long channels or connections are active. [Contact Ably](https://ably.com/contact) to discuss options for Enterprise pricing and volume discounts.
+
+The cost of streaming token responses over Ably depends on:
+
+- the number of tokens in the LLM responses that you are streaming. For example, a simple support chatbot response might be around 300 tokens, a coding session can be 2,000-3,000 tokens and a deep reasoning response could be over 50,000 tokens.
+- the rate at which your agent publishes tokens to Ably and the number of messages it uses to do so. Some LLMs output every token as a single event, while others batch multiple tokens together. Similarly, your agent may publish tokens as they are received from the LLM or perform its own processing and batching first.
+- the number of subscribers receiving the response.
+
+For example, suppose an AI support chatbot sends a response of 300 tokens, each as a discrete update, and with a single client subscribed to the channel. With AI Transport's append rollup, those 300 input tokens will be conflated to 100 discrete inbound messages, resulting in 100 outbound messages and 100 persisted messages. See the [AI support chatbot pricing example](https://ably.com/docs/platform/pricing/examples/ai-chatbot.md) for a full breakdown of the costs in this scenario.
+
+## Related Topics
+
+- [Why AI Transport](https://ably.com/docs/ai-transport/why.md): Learn why AI Transport is the best way to connect your AI agents to users in realtime, with built-in support for streaming, recovery, and multi-device sessions.
+
+## Documentation Index
+
+To discover additional Ably documentation:
+
+1. Fetch [llms.txt](https://ably.com/llms.txt) for the canonical list of available pages.
+2. Identify relevant URLs from that index.
+3. Fetch target pages as needed.
+
+Avoid using assumed or outdated documentation paths.

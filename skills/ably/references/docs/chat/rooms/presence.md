@@ -1,0 +1,637 @@
+# Presence
+
+The presence feature of a chat room enables online users to advertise to others that they are online. Use this feature to build online status indicators to display who is online in a chat room. Users can also share additional information such as avatar URLs or custom statuses.
+
+## Subscribe to presence 
+
+<If lang="javascript,swift,kotlin">
+Subscribe to users' presence status by registering a listener. Presence events are emitted whenever a member enters or leaves the presence set, or updates their user data. Use the <If lang="javascript">[`presence.subscribe()`](https://ably.com/docs/chat/api/javascript/presence.md#subscribe)</If><If lang="swift">[`presence.subscribe()`](https://sdk.ably.com/builds/ably/ably-chat-swift/main/AblyChat/documentation/ablychat/presence/subscribe%28_%3A%29)</If><If lang="kotlin">[`presence.subscribe()`](https://sdk.ably.com/builds/ably/ably-chat-kotlin/main/dokka/chat/com.ably.chat/-presence/subscribe.html)</If> method in a room to receive updates:
+</If>
+
+<If lang="android">
+Use the [`collectAsPresenceMembers()`](https://sdk.ably.com/builds/ably/ably-chat-kotlin/main/jetpack/chat-extensions-compose/com.ably.chat.extensions.compose/collect-as-presence-members.html) extension function to observe user presence changes reactively in Jetpack Compose:
+</If>
+
+<If lang="react">
+Subscribe to users' presence status with the [`usePresenceListener`](https://sdk.ably.com/builds/ably/ably-chat-js/main/typedoc/functions/chat-react.usePresenceListener.html) hook. Supply an optional listener to receive presence status updates, or use the [`presenceData`](https://sdk.ably.com/builds/ably/ably-chat-js/main/typedoc/interfaces/chat-react.UsePresenceListenerResponse.html#presenceData) property returned by the hook.
+
+To enter the presence set of a room, use the [`usePresence`](#set) hook instead.
+</If>
+
+<Code>
+
+### Javascript
+
+```
+const { unsubscribe } = room.presence.subscribe((event) => {
+  console.log(`Presence event ${event.type} from ${event.member.clientId} with data ${event.member.data}`);
+});
+```
+
+### React
+
+```
+import React from 'react';
+import { usePresenceListener } from '@ably/chat/react';
+
+const MyComponent = () => {
+  const { presenceData, error } = usePresenceListener({
+    listener: (event) => {
+      console.log('Presence event: ', event);
+    },
+  });
+
+  return (
+    <div>
+      <p>Presence data:</p>
+      {error === undefined ? (
+        <ul>
+          {presenceData.map((presence) => (
+            <li key={presence.clientId}>{presence.clientId}</li>
+          ))}
+        </ul>
+      ) : (
+        <p>Error loading presence data</p>
+      )}
+    </div>
+  );
+};
+```
+
+### Swift
+
+```
+let presenceSubscription = room.presence.subscribe()
+for await event in presenceSubscription {
+    print("Presence event `\(event.type)` from `\(event.member.clientId)` with data `\(event.member.data)`")
+}
+```
+
+### Kotlin
+
+```
+import com.ably.chat.PresenceEventType
+import com.ably.chat.PresenceEvent
+
+val subscription = room.presence.subscribe { event: PresenceEvent ->
+    when (event.type) {
+        PresenceEventType.Enter -> println("${event.member.clientId} entered")
+        PresenceEventType.Leave -> println("${event.member.clientId} left")
+        PresenceEventType.Update -> println("${event.member.clientId} updated: ${event.member.data}")
+        PresenceEventType.Present -> println("${event.member.clientId} already present")
+    }
+}
+```
+
+### Android
+
+```
+import androidx.compose.material.*
+import androidx.compose.runtime.*
+import com.ably.chat.Room
+import com.ably.chat.extensions.compose.collectAsPresenceMembers
+
+@Composable
+fun PresenceComponent(room: Room) {
+  val presenceMembers by room.collectAsPresenceMembers()
+
+  Text("Present members: ${presenceMembers.size}")
+  presenceMembers.forEach { member ->
+    Text("${member.clientId} is present with data: ${member.data}")
+  }
+}
+```
+</Code>
+
+### Presence event structure 
+
+The following are the properties of a presence event:
+
+| Property | Description | Type |
+| -------- | ----------- | ---- |
+| `type` | The type of the event | `String` |
+| `member` | The presence member that the event pertains to | `PresenceMember` |
+| `member.clientId` | The ID of the client that triggered the event. | `String` |
+| `member.connectionId` | The connection ID of the client that triggered the event. Use this in combination with `clientId` to identify a user across multiple devices. | `String` |
+| `member.data` | Optional user data. | `Object` |
+| `member.updatedAt` | The time that the event was emitted. | `DateTime` |
+| `member.extras` | A JSON object of arbitrary key-value pairs that may contain metadata, and/or ancillary payloads related to the user's latest presence event. | `JSONObject`(optional) |
+| `member.userClaim` | A server-signed [user claim](https://ably.com/docs/chat/setup.md#user-claims) attached to this presence event, derived from the user's [JWT](https://ably.com/docs/chat/setup.md#set-user-claims). | `String` (optional) |
+
+<Aside data-type="usp">
+Reliable presence recovery.
+
+Ably automatically [recovers connections](https://ably.com/docs/platform/architecture/idempotency.md#connection-recovery-and-exactly-once-delivery) and prevents message loss or duplication when clients reconnect within two minutes, keeping your presence sets accurate.
+</Aside>
+
+## Unsubscribe from presence 
+
+<If lang="javascript,kotlin">
+Use the `unsubscribe()` function returned in the `subscribe()` response to remove a presence listener:
+</If>
+
+<If lang="android">
+Jetpack Compose automatically handles lifecycle and cleanup when using `collectAsPresenceMembers()`.
+</If>
+
+<If lang="swift">
+You don't need to handle removing listeners, as this is done automatically by the SDK.
+</If>
+
+<If lang="react">
+When you unmount the component that is using the `usePresenceListener` hook, it will automatically handle unsubscribing any associated listeners registered for presence status updates.
+</If>
+
+<If lang="javascript,kotlin">
+<Code>
+
+### Javascript
+
+```
+// Initial subscription
+const { unsubscribe } = room.presence.subscribe((event) => {
+  console.log(`Presence event ${event.type} from ${event.member.clientId} with data ${event.member.data}`);
+});
+
+// To remove the listener
+unsubscribe();
+```
+
+### Kotlin
+
+```
+// Initial subscription
+val (unsubscribe) = room.presence.subscribe { event ->
+  println("Presence event ${event.type} from ${event.member.clientId} with data ${event.member.data}")
+}
+
+// To remove the listener
+unsubscribe()
+```
+</Code>
+</If>
+
+## Set user presence 
+
+Users can enter and leave the presence set of a room to indicate when they are online or offline. They can also set user data when entering and leaving the set, such as their current status. Presence is also linked to a user's [connection status](https://ably.com/docs/chat/connect.md). For example, if a user goes offline then a leave event will be emitted for them.
+
+<Aside data-type='important'>
+Users must be identified to enter into the presence set. This means that they must set a `clientId` when [instantiating their client](https://ably.com/docs/chat/setup.md#instantiate).
+</Aside>
+
+<If lang="javascript,swift,kotlin,android">
+Use the <If lang="javascript">[`presence.enter()`](https://ably.com/docs/chat/api/javascript/presence.md#enter)</If><If lang="swift">[`presence.enter()`](https://sdk.ably.com/builds/ably/ably-chat-swift/main/AblyChat/documentation/ablychat/presence/enter%28withdata%3A%29)</If><If lang="kotlin,android">[`presence.enter()`](https://sdk.ably.com/builds/ably/ably-chat-kotlin/main/dokka/chat/com.ably.chat/-presence/enter.html)</If> method to indicate when a user joins a room. This will send a presence event to all users subscribed to presence indicating that a new member has joined the chat. You can also set an optional data field with information such as the status of a user:
+</If>
+
+<If lang="react">
+Indicate when a user joins a room with the [`usePresence`](https://sdk.ably.com/builds/ably/ably-chat-js/main/typedoc/functions/chat-react.usePresence.html) hook. Users will automatically be entered into the presence set when the component mounts and removed when the component unmounts. The `initialData` will be used on the first time the hook mounts. When using auto-entry, you should **not** have multiple instances of the hook with this setting enabled. The hook maintains internal state that may cause unintended side-effects when this happens. See below for more options if you require this behavior.
+
+To subscribe to the presence updates of a room, use the [`usePresenceListener`](#subscribe) hook instead.
+</If>
+
+<Code>
+
+### Javascript
+
+```
+await room.presence.enter({ status: 'available' });
+```
+
+### React
+
+```
+import React, { useMemo } from 'react';
+import { usePresence } from '@ably/chat/react';
+
+const MyComponent = () => {
+  // This data is only relevant when auto-entry is enabled
+  // Once it has been used once, subsequent changes will have no effect
+  const presenceParams = {
+    initialData: { status: 'Online' },
+  };
+
+  // By default, presence will be entered when the hook mounts and left
+  // when it subsequently unmounts.
+  const { myPresenceState } = usePresence(presenceParams);
+
+  return (
+    <div>
+      <div>Presence status: {myPresenceState.present ? 'Online' : 'Offline'}</div>
+    </div>
+  );
+};
+```
+
+### Swift
+
+```
+try await room.presence.enter(withData: ["status": "Online"])
+```
+
+### Kotlin
+
+```
+// import com.ably.chat.json.*
+room.presence.enter(
+    jsonObject {
+        put("status", "Online")
+    },
+)
+```
+
+### Android
+
+```
+import androidx.compose.runtime.*
+import com.ably.chat.Room
+import com.ably.chat.RoomStatus
+import com.ably.chat.json.*
+
+@Composable
+fun EnterPresenceComponent(room: Room) {
+  LaunchedEffect(room) {
+    // Ensure room is attached before entering presence
+    if (room.status != RoomStatus.Attached) {
+      room.attach()
+    }
+
+    room.presence.enter(
+      jsonObject {
+        put("status", "Online")
+      }
+    )
+  }
+
+  // Leave presence when component is disposed
+  DisposableEffect(room) {
+    onDispose {
+      // Note: Consider using a coroutine scope for leave()
+      // as DisposableEffect doesn't support suspend functions directly
+    }
+  }
+}
+```
+</Code>
+
+<If lang="javascript,swift,kotlin,android">
+Use the <If lang="javascript">[`presence.update()`](https://ably.com/docs/chat/api/javascript/presence.md#update)</If><If lang="swift">[`presence.update()`](https://sdk.ably.com/builds/ably/ably-chat-swift/main/AblyChat/documentation/ablychat/presence/update%28withdata%3A%29)</If><If lang="kotlin,android">[`presence.update()`](https://sdk.ably.com/builds/ably/ably-chat-kotlin/main/dokka/chat/com.ably.chat/-presence/update.html)</If> method when a user wants to update their data, such as an update to their status, or to indicate that they're raising their hand. Updates will send a presence event to all users subscribed to presence:
+</If>
+
+<If lang="react">
+Use the [`update`](https://sdk.ably.com/builds/ably/ably-chat-js/main/typedoc/interfaces/chat-react.UsePresenceResponse.html#update) property available from the response of the `usePresence` hook to update a user's data, such as setting their status to 'Away from keyboard'.
+</If>
+
+<Code>
+
+### Javascript
+
+```
+await room.presence.update({ status: 'busy' });
+```
+
+### React
+
+```
+import React, { useMemo } from 'react';
+import { usePresence } from '@ably/chat/react';
+
+const MyComponent = () => {
+  const presenceParams = {
+    initialData: { status: 'Online' },
+  };
+
+  const { update, myPresenceState } = usePresence(presenceParams);
+
+  const updatePresence = () => {
+    update({ status: 'Away' });
+  };
+
+  return (
+    <div>
+      <div>Presence status: {myPresenceState.present ? 'Online' : 'Offline'}</div>
+      <button onClick={updatePresence}>Set Away</button>
+    </div>
+  );
+};
+```
+
+### Swift
+
+```
+try await room.presence.update(withData: ["status": "Busy"])
+```
+
+### Kotlin
+
+```
+// import com.ably.chat.json.*
+room.presence.update(
+    jsonObject {
+        put("status", "Busy")
+    },
+)
+```
+
+### Android
+
+```
+import androidx.compose.material.*
+import androidx.compose.runtime.*
+import com.ably.chat.Room
+import com.ably.chat.json.*
+import kotlinx.coroutines.launch
+
+@Composable
+fun UpdatePresenceComponent(room: Room) {
+  val coroutineScope = rememberCoroutineScope()
+
+  Button(onClick = {
+    coroutineScope.launch {
+      room.presence.update(
+        jsonObject {
+          put("status", "Busy")
+        }
+      )
+    }
+  }) {
+    Text("Set Status to Busy")
+  }
+}
+```
+</Code>
+
+<If lang="javascript,swift,kotlin,android">
+Use the <If lang="javascript">[`presence.leave()`](https://ably.com/docs/chat/api/javascript/presence.md#leave)</If><If lang="swift">[`presence.leave()`](https://sdk.ably.com/builds/ably/ably-chat-swift/main/AblyChat/documentation/ablychat/presence/leave%28withdata%3A%29)</If><If lang="kotlin,android">[`presence.leave()`](https://sdk.ably.com/builds/ably/ably-chat-kotlin/main/dokka/chat/com.ably.chat/-presence/leave.html)</If> method to explicitly remove a user from the presence set. This will send a presence event to all users subscribed to presence. You can also set an optional data field such as setting a status of 'Back later'.
+</If>
+
+<If lang="react">
+Indicate when a user leaves a room with the [`leave`](https://sdk.ably.com/builds/ably/ably-chat-js/main/typedoc/functions/chat-react.UsePresenceResponse.html#leave) callback exposed by the usePresence hook. Users will automatically be removed from the presence set when the component unmounts.
+
+<Aside data-type='important'>
+  If you call `leave`, this will disable the automatic enter-leave behavior of the `usePresence` hook. To re-enable this, you must explicitly re-enter presence using the [`enter`](https://sdk.ably.com/builds/ably/ably-chat-js/main/typedoc/functions/chat-react.UsePresenceResponse.html#enter) or [`update`](https://sdk.ably.com/builds/ably/ably-chat-js/main/typedoc/functions/chat-react.UsePresenceResponse.html#update) callbacks.
+</Aside>
+</If>
+
+<Code>
+
+### Javascript
+
+```
+await room.presence.leave({ status: 'Be back later!' });
+```
+
+### React
+
+```
+import React, { useMemo } from 'react';
+import { usePresence } from '@ably/chat/react';
+
+const MyComponent = () => {
+  const presenceParams = {
+    initialData: { status: 'Online' },
+  };
+
+  // Call leave explicitly to disable auto-entry and leave presence
+  const { myPresenceState, leave } = usePresence(presenceParams);
+
+  return (
+    <div>
+      <div>Presence status: {myPresenceState.present ? 'Online' : 'Offline'}</div>
+    </div>
+  );
+};
+```
+
+### Swift
+
+```
+try await room.presence.leave(withData: ["status": "Be back later!"])
+```
+
+### Kotlin
+
+```
+// import com.ably.chat.json.*
+room.presence.leave(
+    jsonObject {
+        put("status", "Be back later!")
+    },
+)
+```
+
+### Android
+
+```
+import androidx.compose.material.*
+import androidx.compose.runtime.*
+import com.ably.chat.Room
+import com.ably.chat.json.*
+import kotlinx.coroutines.launch
+
+@Composable
+fun LeavePresenceComponent(room: Room) {
+  val coroutineScope = rememberCoroutineScope()
+
+  Button(onClick = {
+    coroutineScope.launch {
+      room.presence.leave(
+        jsonObject {
+          put("status", "Be back later!")
+        }
+      )
+    }
+  }) {
+    Text("Leave Presence")
+  }
+}
+```
+</Code>
+
+When a user goes offline or closes their [connection](https://ably.com/docs/chat/connect.md), a leave event is also emitted and they are removed from the presence set.
+
+
+<Aside data-type='note'>
+  Users do not automatically enter presence when they attach to a room. [Attachment](https://ably.com/docs/chat/rooms.md#attach) is a prerequisite for receiving any messages and events from a room. Users must explicitly enter presence to be entered into the presence set.
+</Aside>
+
+
+<If lang="react">
+### Manually Controlling Presence
+
+For various reasons, you may wish to take manual control of presence (as you do with the base JavaScript SDK) and not have the React hooks automatically handle this for you. To do this, you should set `autoEnterLeave` to `false`. In this mode, `initialData` will have no effect.
+
+<Code>
+
+#### React
+
+```
+  import React, { useMemo, useCallback } from 'react';
+  import { usePresence } from '@ably/chat/react';
+
+  const MyComponent = () => {
+    // Mount the hook without auto-entry
+    const presenceParams = {
+      autoEnterLeave: false,
+    };
+
+    const { myPresenceState, leave, enter, update } = usePresence(presenceParams);
+
+    // Manual mount behavior - enter presence when component mounts
+    useEffect(() => {
+      enter({ status: 'active' });
+
+      // Manual unmount behavior - leave presence when component unmounts
+      return () => {
+        leave({ status: 'disconnecting' });
+      };
+    }, [enter, leave]);
+
+    // Update presence data when some event happens
+    const onSomeEvent = useCallback(() => {
+      const now = Date.now();
+      update({status: 'active', updated: now});
+    }, [update]);
+
+    return (
+      <div>
+        <div>Presence status: {myPresenceState.present ? 'Online' : 'Offline'}</div>
+        <button onClick={onSomeEvent}>Update</button>
+      </div>
+    );
+  };
+  ```
+</Code>
+
+### Multiple Presence Data Contributors
+
+Using multiple instances of `usePresence` with `autoEnterLeave` set to `true` is not recommended as the hooks maintain internal state to manage this behavior that is not shared between hooks. Furthermore, all instances of the hook use the same underlying presence instances, so calls to `enter`, `update` and `leave` can interact in unintended ways and lead to race conditions. Furthermore, the calls are PUT-like operations that replace your entire presence data payload. If you have multiple areas of your application that contribute data to presence, you can achieve this by using a central place to store your presence data.
+
+To implement this pattern, you would define a Provider or Context further up your application tree, or using a global state store such as Redux. Individual areas of your codebase then update this value (or contribute to parts of it). A single call to `usePresence` can then be used to keep this state synchronized with presence whenever the value changes. This allows multiple distinct components to contribute to the presence data, without multiple calls to `usePresence` and importantly, without requiring them to know anything about the complete presence data.
+
+</If>
+
+## Presence options 
+
+The following options can be set when [creating a room](https://ably.com/docs/chat/rooms.md#create) that are specific to presence:
+
+| Property | Description | Default |
+| --- | --- | --- |
+| enableEvents | Set whether the client has permissions to subscribe to the presence set. Calling `presence.subscribe()` is still required. | true |
+
+## Retrieve the presence set 
+
+<If lang="javascript,swift,kotlin,android">
+The online presence of users can be retrieved in one-off calls. This can be used to check the status of an individual user, or return the entire presence set as an array.
+The `presence.get()` method may return multiple entries for the same `clientId` if the user has multiple active connections or has reconnected. When displaying presence members in UI, consider deduplicating by unique `clientId` to avoid showing duplicate users.
+
+Use the <If lang="javascript">[`presence.get()`](https://ably.com/docs/chat/api/javascript/presence.md#get)</If><If lang="swift">[`presence.get()`](https://sdk.ably.com/builds/ably/ably-chat-swift/main/AblyChat/documentation/ablychat/presence/get%28%29)</If><If lang="kotlin,android">[`presence.get()`](https://sdk.ably.com/builds/ably/ably-chat-kotlin/main/dokka/chat/com.ably.chat/-presence/get.html)</If> method to retrieve an array of all users currently entered into the presence set, or individual users:
+
+<Code>
+
+### Javascript
+
+```
+// Retrieve all users entered into presence as an array:
+const presentMembers = await room.presence.get();
+
+// Retrieve the status of specific users by their clientId:
+const presentMember = await room.presence.get({ clientId: 'clemons123' });
+```
+
+### Swift
+
+```
+// Retrieve all users entered into presence as an array:
+let presentMembers = try await room.presence.get()
+
+// Retrieve the status of specific users by their clientId:
+let presentMember = try await room.presence.get(withParams: .init(clientID: "clemons123"))
+```
+
+### Kotlin
+
+```
+// Retrieve all users entered into presence as an array:
+val presentMembers = room.presence.get()
+
+// Retrieve the status of specific users by their clientId:
+val presentMember = room.presence.get(clientId = "clemons123")
+```
+
+### Android
+
+```
+// Retrieve all users entered into presence as an array:
+val presentMembers = room.presence.get()
+
+// Retrieve the status of specific users by their clientId:
+val presentMember = room.presence.get(clientId = "clemons123")
+```
+</Code>
+
+Alternatively, use the <If lang="javascript">[`presence.isUserPresent()`](https://ably.com/docs/chat/api/javascript/presence.md#isUserPresent)</If><If lang="swift">[`presence.isUserPresent()`](https://sdk.ably.com/builds/ably/ably-chat-swift/main/AblyChat/documentation/ablychat/presence/isuserpresent%28withclientid%3A%29)</If><If lang="kotlin,android">[`presence.isUserPresent()`](https://sdk.ably.com/builds/ably/ably-chat-kotlin/main/dokka/chat/com.ably.chat/-presence/is-user-present.html)</If> method and pass in a user's `clientId` to check whether they are online or not. This will return a boolean:
+
+<Code>
+
+### Javascript
+
+```
+const isPresent = await room.presence.isUserPresent('clemons123');
+```
+
+### Swift
+
+```
+let isPresent = try await room.presence.isUserPresent(withClientID: "clemons123")
+```
+
+### Kotlin
+
+```
+val isPresent = room.presence.isUserPresent("client-id")
+```
+
+### Android
+
+```
+val isPresent = room.presence.isUserPresent("client-id")
+```
+</Code>
+</If>
+
+<If lang="react">
+Use the [`presenceData`](https://sdk.ably.com/builds/ably/ably-chat-js/main/typedoc/interfaces/chat-react.UsePresenceListener.html#presenceData) property available from the response of the `usePresence` hook to view a list of all member's presence status in the room.
+</If>
+
+### Presence member structure 
+
+The following are the properties of an individual presence member:
+
+| Property | Description | Type |
+| -------- | ----------- | ---- |
+| clientId | The ID of the client this event relates to. | String |
+| data | The latest optional user data associated with the user. | Object |
+| extras | A JSON object of arbitrary key-value pairs that may contain metadata, and/or ancillary payloads related to the user's latest presence event. | JsonObject (optional) |
+| userClaim | A server-signed [user claim](https://ably.com/docs/chat/setup.md#user-claims) attached to this presence member, derived from the user's [JWT](https://ably.com/docs/chat/setup.md#set-user-claims). | String (optional) |
+| updatedAt | The time of the last presence event. | DateTime |
+
+## Related Topics
+
+- [Messages](https://ably.com/docs/chat/rooms/messages.md): Send, update, delete, and receive messages in chat rooms.
+- [Message history](https://ably.com/docs/chat/rooms/history.md): Retrieve previously sent messages from history.
+- [Occupancy](https://ably.com/docs/chat/rooms/occupancy.md): Use occupancy to see how many users are in a room.
+- [Message reactions](https://ably.com/docs/chat/rooms/message-reactions.md): React to chat messages
+- [Typing indicators](https://ably.com/docs/chat/rooms/typing.md): Display typing indicators in a room so that users can see when someone else is writing a message.
+- [Room reactions](https://ably.com/docs/chat/rooms/reactions.md): Enable users to send reactions at the room level, based on what is happening in your application, such as a goal being scored in your livestream.
+- [Share media](https://ably.com/docs/chat/rooms/media.md): Share media such as images, videos, or files in a chat room.
+- [Message replies](https://ably.com/docs/chat/rooms/replies.md): Add reply functionality to messages in a chat room.
+
+## Documentation Index
+
+To discover additional Ably documentation:
+
+1. Fetch [llms.txt](https://ably.com/llms.txt) for the canonical list of available pages.
+2. Identify relevant URLs from that index.
+3. Fetch target pages as needed.
+
+Avoid using assumed or outdated documentation paths.
