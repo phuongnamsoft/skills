@@ -2,7 +2,7 @@
 
 This repository hosts [Cursor agent skills](https://skills.sh/)—modular packages that extend assistants with specialized workflows, document tooling, and domain guidance. Install them with the [Skills CLI](https://skills.sh/) (`npx skills`), published as [`skills` on npm](https://www.npmjs.com/package/skills).
 
-**Who this is for:** anyone using Cursor (or compatible clients) who wants ready-made skills for Laravel, Node/Nest/Next, databases, testing, documents, n8n, Telegram, SaaS architecture, DevOps, MCP, and more—without copying instructions by hand.
+**Who this is for:** anyone using Cursor (or compatible clients) who wants ready-made skills for Laravel, Node/Nest/Next, databases, testing, documents, n8n, Telegram, Ably realtime, Cosmos / CometBFT chains, agent orchestration, SaaS architecture, DevOps, MCP, and more—without copying instructions by hand.
 
 ## Contents
 
@@ -81,6 +81,8 @@ Run one command per skill id:
 
 ```bash
 SKILLS=(
+  ably
+  ably-chat
   algorithmic-art
   architecture
   brainstorming
@@ -92,10 +94,14 @@ SKILLS=(
   code-review-checklist
   code-review-excellence
   code-reviewer
+  cometbft
+  cosmos-sdk
+  cosmos-sdk-expert
   database
   database-architect
   database-design
   debug-using-debugbar
+  dispatching-parallel-agents
   doc-coauthoring
   docker-expert
   docx
@@ -104,6 +110,7 @@ SKILLS=(
   find-skills
   frontend-design
   golang-pro
+  ignite-cli
   internal-comms
   itil-expert
   javascript-mastery
@@ -143,6 +150,7 @@ SKILLS=(
   senior-fullstack
   skill-creator
   slack-gif-creator
+  subagent-driven-development
   tailwind-design-system
   tailwind-patterns
   technical-writing
@@ -174,17 +182,17 @@ done
 
 ```powershell
 $skills = @(
-  'algorithmic-art','architecture','brainstorming','brainstorming-new','brand-guidelines','canvas-design',
-  'claude-api','code-review-ai-ai-review','code-review-checklist','code-review-excellence','code-reviewer',
-  'database','database-architect','database-design','debug-using-debugbar','doc-coauthoring','docker-expert',
-  'docx','executing-plans','extract-design-system','find-skills','frontend-design','golang-pro',
+  'ably','ably-chat','algorithmic-art','architecture','brainstorming','brainstorming-new','brand-guidelines','canvas-design',
+  'claude-api','code-review-ai-ai-review','code-review-checklist','code-review-excellence','code-reviewer','cometbft','cosmos-sdk','cosmos-sdk-expert',
+  'database','database-architect','database-design','debug-using-debugbar','dispatching-parallel-agents','doc-coauthoring','docker-expert',
+  'docx','executing-plans','extract-design-system','find-skills','frontend-design','golang-pro','ignite-cli',
   'internal-comms','itil-expert','javascript-mastery','javascript-pro','laravel-best-practices','laravel-expert',
   'laravel-patterns','laravel-security','mcp-builder','n8n-code-javascript','n8n-code-python','n8n-expression-syntax',
   'n8n-mcp-tools-expert','n8n-node-configuration','n8n-validation-expert','n8n-workflow-patterns','nestjs-expert',
   'nextjs-best-practices','nodejs-backend-patterns','nodejs-best-practices','nosql-expert','pdf','php-pro',
   'playwright-best-practices','playwright-skill','pptx','product-manager','product-manager-toolkit',
   'react-best-practices','receiving-code-review','requesting-code-review','rust-pro','saas-multi-tenant','saas-mvp-launcher',
-  'senior-architect','senior-frontend','senior-fullstack','skill-creator','slack-gif-creator',
+  'senior-architect','senior-frontend','senior-fullstack','skill-creator','slack-gif-creator','subagent-driven-development',
   'tailwind-design-system','tailwind-patterns','technical-writing','telegram','telegram-automation',
   'telegram-bot-builder','telegram-mini-app','test-driven-development','testing-qa','theme-factory',
   'typescript-expert','typescript-pro','vue-best-practices','web-artifacts-builder','webapp-testing',
@@ -240,6 +248,18 @@ for s in "${SKILLS[@]}"; do npx skills add "$REPO" --skill "$s" -y; done
 SKILLS=(writing-plans executing-plans brainstorming brainstorming-new architecture internal-comms technical-writing writing-skills)
 for s in "${SKILLS[@]}"; do npx skills add "$REPO" --skill "$s" -y; done
 
+# Agent orchestration
+SKILLS=(dispatching-parallel-agents subagent-driven-development)
+for s in "${SKILLS[@]}"; do npx skills add "$REPO" --skill "$s" -y; done
+
+# Blockchain & interchain (CometBFT, Cosmos SDK, Ignite)
+SKILLS=(cometbft cosmos-sdk cosmos-sdk-expert ignite-cli)
+for s in "${SKILLS[@]}"; do npx skills add "$REPO" --skill "$s" -y; done
+
+# Realtime (Ably)
+SKILLS=(ably ably-chat)
+for s in "${SKILLS[@]}"; do npx skills add "$REPO" --skill "$s" -y; done
+
 # Product & SaaS
 SKILLS=(product-manager product-manager-toolkit saas-multi-tenant saas-mvp-launcher senior-architect senior-fullstack)
 for s in "${SKILLS[@]}"; do npx skills add "$REPO" --skill "$s" -y; done
@@ -286,6 +306,8 @@ Swap `$skills` for another group’s ids from the table in [Browse by focus](#br
 
 | Skill id | Summary |
 | -------- | ------- |
+| `ably` | Ably realtime: Pub/Sub, Chat, Spaces, LiveObjects, auth (JWT, token), channels, React; product and SDK selection. |
+| `ably-chat` | Ably Chat with `@ably/chat`: rooms, messages, typing, presence, React hooks/UI kit; subscribe-before-attach and room APIs. |
 | `algorithmic-art` | Generative / algorithmic art with p5.js (seeded randomness, parameters). |
 | `architecture` | Architecture decision records (ADRs), technology trade-offs, design reviews. |
 | `brainstorming` | Explore intent, requirements, and design before implementation work. |
@@ -297,10 +319,14 @@ Swap `$skills` for another group’s ids from the table in [Browse by focus](#br
 | `code-review-checklist` | Checklist-driven reviews—functionality, security, performance, maintainability. |
 | `code-review-excellence` | Constructive PR review, standards, mentoring, collaboration. |
 | `code-reviewer` | Deep code review guidance for modern AI-assisted review workflows. |
+| `cometbft` | CometBFT consensus, ABCI/ABCI++, mempool, validators, RPC, state sync, light clients, node operations—not app-only Cosmos module logic. |
+| `cosmos-sdk` | Cosmos SDK chains: custom modules, BaseApp/ABCI, stores, genesis, upgrades, CometBFT integration. |
+| `cosmos-sdk-expert` | Interchain ecosystem: IBC, relayers, CosmJS, Cosmovisor, interchaintest, CosmWasm vs EVM, tooling beyond a single app repo. |
 | `database` | Database development and operations: SQL/NoSQL, design, migrations, optimization, data engineering. |
 | `database-architect` | Data layer design from scratch—technology selection, schema modeling, scalable architectures. |
 | `database-design` | Schema design, indexing, ORM selection, serverless databases, design trade-offs. |
 | `debug-using-debugbar` | Debug and optimize Laravel via Debugbar data (Artisan: requests, collectors, queries, exceptions). |
+| `dispatching-parallel-agents` | Delegate independent problems to parallel agents—isolated context per domain, no shared sequential dependency. |
 | `doc-coauthoring` | Structured workflow for docs, proposals, specs, decision docs. |
 | `docker-expert` | Containers: optimization, security hardening, multi-stage builds, orchestration, production deployment. |
 | `docx` | Create, read, edit Word `.docx` (reports, memos, formatting, tracked changes). |
@@ -309,6 +335,7 @@ Swap `$skills` for another group’s ids from the table in [Browse by focus](#br
 | `find-skills` | Help users discover and install skills from the ecosystem. |
 | `frontend-design` | Distinctive, production-grade web UI (components, pages, dashboards). |
 | `golang-pro` | Go 1.21+ patterns, concurrency, performance, production microservices. |
+| `ignite-cli` | Ignite CLI for Cosmos SDK chains: scaffold, `config.yml`, relayer workflows, clients, testnets, upgrades. |
 | `internal-comms` | Internal communications—status, leadership updates, newsletters, FAQs. |
 | `itil-expert` | ITIL 4 / ITIL 5-oriented service management, governance, and digital product practices. |
 | `javascript-mastery` | Core JavaScript concepts and deep language understanding (modern JS ecosystem). |
@@ -348,6 +375,7 @@ Swap `$skills` for another group’s ids from the table in [Browse by focus](#br
 | `senior-fullstack` | Senior fullstack toolkit across frontend and backend. |
 | `skill-creator` | Author skills, run evals, benchmark and tune descriptions. |
 | `slack-gif-creator` | Animated GIFs tuned for Slack constraints and tooling. |
+| `subagent-driven-development` | Execute implementation plans with a fresh subagent per task and two-stage review (spec then quality) in-session. |
 | `tailwind-design-system` | Design systems with Tailwind—tokens, variants, responsive and accessible UI. |
 | `tailwind-patterns` | Tailwind CSS v4—CSS-first config, container queries, tokens, modern layout patterns. |
 | `technical-writing` | Technical documentation—specs, architecture, runbooks, APIs. |
@@ -385,6 +413,9 @@ Rough groupings—the full table above remains the source of truth for ids.
 | Documents & decks | `docx`, `pdf`, `pptx`, `xlsx`, `doc-coauthoring` |
 | UI & front end | `vue-best-practices`, `frontend-design`, `web-artifacts-builder`, `canvas-design`, `algorithmic-art`, `brand-guidelines`, `extract-design-system`, `theme-factory`, `tailwind-design-system`, `tailwind-patterns`, `react-best-practices`, `senior-frontend` |
 | Planning & process | `writing-plans`, `executing-plans`, `brainstorming`, `brainstorming-new`, `architecture`, `internal-comms`, `technical-writing`, `writing-skills` |
+| Agent orchestration | `dispatching-parallel-agents`, `subagent-driven-development` |
+| Blockchain & interchain | `cometbft`, `cosmos-sdk`, `cosmos-sdk-expert`, `ignite-cli` |
+| Realtime (Ably) | `ably`, `ably-chat` |
 | Product & SaaS | `product-manager`, `product-manager-toolkit`, `saas-multi-tenant`, `saas-mvp-launcher`, `senior-architect`, `senior-fullstack` |
 | DevOps, ITSM, orchestration | `docker-expert`, `workflow-orchestration-patterns`, `itil-expert` |
 | n8n | `n8n-code-javascript`, `n8n-code-python`, `n8n-expression-syntax`, `n8n-mcp-tools-expert`, `n8n-node-configuration`, `n8n-validation-expert`, `n8n-workflow-patterns` |
