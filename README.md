@@ -103,6 +103,7 @@ SKILLS=(
   debug-using-debugbar
   dispatching-parallel-agents
   doc-coauthoring
+  docs-architect
   docker-expert
   docx
   executing-plans
@@ -184,7 +185,7 @@ done
 $skills = @(
   'ably','ably-chat','algorithmic-art','architecture','brainstorming','brainstorming-new','brand-guidelines','canvas-design',
   'claude-api','code-review-ai-ai-review','code-review-checklist','code-review-excellence','code-reviewer','cometbft','cosmos-sdk','cosmos-sdk-expert',
-  'database','database-architect','database-design','debug-using-debugbar','dispatching-parallel-agents','doc-coauthoring','docker-expert',
+  'database','database-architect','database-design','debug-using-debugbar','dispatching-parallel-agents','doc-coauthoring','docs-architect','docker-expert',
   'docx','executing-plans','extract-design-system','find-skills','frontend-design','golang-pro','ignite-cli',
   'internal-comms','itil-expert','javascript-mastery','javascript-pro','laravel-best-practices','laravel-expert',
   'laravel-patterns','laravel-security','mcp-builder','n8n-code-javascript','n8n-code-python','n8n-expression-syntax',
@@ -237,7 +238,7 @@ SKILLS=(playwright-best-practices playwright-skill webapp-testing testing-qa tes
 for s in "${SKILLS[@]}"; do npx skills add "$REPO" --skill "$s" -y; done
 
 # Documents & decks
-SKILLS=(docx pdf pptx xlsx doc-coauthoring)
+SKILLS=(docx pdf pptx xlsx doc-coauthoring docs-architect)
 for s in "${SKILLS[@]}"; do npx skills add "$REPO" --skill "$s" -y; done
 
 # UI & front end
@@ -328,6 +329,7 @@ Swap `$skills` for another group’s ids from the table in [Browse by focus](#br
 | `debug-using-debugbar` | Debug and optimize Laravel via Debugbar data (Artisan: requests, collectors, queries, exceptions). |
 | `dispatching-parallel-agents` | Delegate independent problems to parallel agents—isolated context per domain, no shared sequential dependency. |
 | `doc-coauthoring` | Structured workflow for docs, proposals, specs, decision docs. |
+| `docs-architect` | Long-form technical documentation from codebases—architecture, patterns, implementation manuals and ebooks. |
 | `docker-expert` | Containers: optimization, security hardening, multi-stage builds, orchestration, production deployment. |
 | `docx` | Create, read, edit Word `.docx` (reports, memos, formatting, tracked changes). |
 | `executing-plans` | Run a written implementation plan in a separate session with review checkpoints. |
@@ -410,7 +412,7 @@ Rough groupings—the full table above remains the source of truth for ids.
 | Other languages | `golang-pro`, `rust-pro` |
 | Database & storage | `database`, `database-architect`, `database-design`, `nosql-expert` |
 | Testing & quality | `playwright-best-practices`, `playwright-skill`, `webapp-testing`, `testing-qa`, `test-driven-development`, `code-review-excellence`, `code-review-checklist`, `code-reviewer`, `code-review-ai-ai-review`, `receiving-code-review`, `requesting-code-review` |
-| Documents & decks | `docx`, `pdf`, `pptx`, `xlsx`, `doc-coauthoring` |
+| Documents & decks | `docx`, `pdf`, `pptx`, `xlsx`, `doc-coauthoring`, `docs-architect` |
 | UI & front end | `vue-best-practices`, `frontend-design`, `web-artifacts-builder`, `canvas-design`, `algorithmic-art`, `brand-guidelines`, `extract-design-system`, `theme-factory`, `tailwind-design-system`, `tailwind-patterns`, `react-best-practices`, `senior-frontend` |
 | Planning & process | `writing-plans`, `executing-plans`, `brainstorming`, `brainstorming-new`, `architecture`, `internal-comms`, `technical-writing`, `writing-skills` |
 | Agent orchestration | `dispatching-parallel-agents`, `subagent-driven-development` |
