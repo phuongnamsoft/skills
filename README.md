@@ -2,7 +2,7 @@
 
 This repository hosts [Cursor agent skills](https://skills.sh/)—modular packages that extend assistants with specialized workflows, document tooling, and domain guidance. Install them with the [Skills CLI](https://skills.sh/) (`npx skills`), published as [`skills` on npm](https://www.npmjs.com/package/skills).
 
-**Who this is for:** anyone using Cursor (or compatible clients) who wants ready-made skills for Laravel, Node/Nest/Next, databases, testing, documents, n8n, Telegram, Ably realtime, Cosmos / CometBFT chains, agent orchestration, SaaS architecture, DevOps, MCP, and more—without copying instructions by hand.
+**Who this is for:** anyone using Cursor (or compatible clients) who wants ready-made skills for Laravel, Node/Nest/Next, PHP image processing (Intervention Image), databases, testing, documents, n8n, Telegram, Ably realtime, Cosmos / CometBFT chains, agent orchestration, SaaS architecture, DevOps, MCP, and more—without copying instructions by hand.
 
 ## Contents
 
@@ -113,6 +113,8 @@ SKILLS=(
   golang-pro
   ignite-cli
   internal-comms
+  intervention-image-v3
+  intervention-image-v4
   itil-expert
   javascript-mastery
   javascript-pro
@@ -152,6 +154,7 @@ SKILLS=(
   skill-creator
   slack-gif-creator
   subagent-driven-development
+  system-architect
   tailwind-design-system
   tailwind-patterns
   technical-writing
@@ -187,13 +190,13 @@ $skills = @(
   'claude-api','code-review-ai-ai-review','code-review-checklist','code-review-excellence','code-reviewer','cometbft','cosmos-sdk','cosmos-sdk-expert',
   'database','database-architect','database-design','debug-using-debugbar','dispatching-parallel-agents','doc-coauthoring','docs-architect','docker-expert',
   'docx','executing-plans','extract-design-system','find-skills','frontend-design','golang-pro','ignite-cli',
-  'internal-comms','itil-expert','javascript-mastery','javascript-pro','laravel-best-practices','laravel-expert',
+  'internal-comms','intervention-image-v3','intervention-image-v4','itil-expert','javascript-mastery','javascript-pro','laravel-best-practices','laravel-expert',
   'laravel-patterns','laravel-security','mcp-builder','n8n-code-javascript','n8n-code-python','n8n-expression-syntax',
   'n8n-mcp-tools-expert','n8n-node-configuration','n8n-validation-expert','n8n-workflow-patterns','nestjs-expert',
   'nextjs-best-practices','nodejs-backend-patterns','nodejs-best-practices','nosql-expert','pdf','php-pro',
   'playwright-best-practices','playwright-skill','pptx','product-manager','product-manager-toolkit',
   'react-best-practices','receiving-code-review','requesting-code-review','rust-pro','saas-multi-tenant','saas-mvp-launcher',
-  'senior-architect','senior-frontend','senior-fullstack','skill-creator','slack-gif-creator','subagent-driven-development',
+  'senior-architect','senior-frontend','senior-fullstack','skill-creator','slack-gif-creator','subagent-driven-development','system-architect',
   'tailwind-design-system','tailwind-patterns','technical-writing','telegram','telegram-automation',
   'telegram-bot-builder','telegram-mini-app','test-driven-development','testing-qa','theme-factory',
   'typescript-expert','typescript-pro','vue-best-practices','web-artifacts-builder','webapp-testing',
@@ -218,7 +221,7 @@ Pick one group (or combine arrays) and run the loop. Same GitHub URL and flags a
 REPO="https://github.com/phuongnamsoft/skills"
 
 # Laravel / PHP
-SKILLS=(laravel-best-practices laravel-patterns laravel-security laravel-expert php-pro debug-using-debugbar)
+SKILLS=(laravel-best-practices laravel-patterns laravel-security laravel-expert php-pro debug-using-debugbar intervention-image-v3 intervention-image-v4)
 for s in "${SKILLS[@]}"; do npx skills add "$REPO" --skill "$s" -y; done
 
 # Node / TypeScript / JavaScript
@@ -246,7 +249,7 @@ SKILLS=(vue-best-practices frontend-design web-artifacts-builder canvas-design a
 for s in "${SKILLS[@]}"; do npx skills add "$REPO" --skill "$s" -y; done
 
 # Planning & process
-SKILLS=(writing-plans executing-plans brainstorming brainstorming-new architecture internal-comms technical-writing writing-skills)
+SKILLS=(writing-plans executing-plans brainstorming brainstorming-new architecture internal-comms technical-writing writing-skills system-architect)
 for s in "${SKILLS[@]}"; do npx skills add "$REPO" --skill "$s" -y; done
 
 # Agent orchestration
@@ -339,6 +342,8 @@ Swap `$skills` for another group’s ids from the table in [Browse by focus](#br
 | `golang-pro` | Go 1.21+ patterns, concurrency, performance, production microservices. |
 | `ignite-cli` | Ignite CLI for Cosmos SDK chains: scaffold, `config.yml`, relayer workflows, clients, testnets, upgrades. |
 | `internal-comms` | Internal communications—status, leadership updates, newsletters, FAQs. |
+| `intervention-image-v3` | PHP Intervention Image v3—ImageManager, GD/Imagick/Vips drivers, encode/decode/save, resizing, watermarks, animations, colors, DecoderException. |
+| `intervention-image-v4` | PHP Intervention Image v4—ImageManager, drivers, decode/decodePath/encodeUsingFormat, Format enum, watermarks, v3 migration, PHP ≥8.3. |
 | `itil-expert` | ITIL 4 / ITIL 5-oriented service management, governance, and digital product practices. |
 | `javascript-mastery` | Core JavaScript concepts and deep language understanding (modern JS ecosystem). |
 | `javascript-pro` | Modern JavaScript (ES6+), async patterns, browser and Node.js APIs. |
@@ -378,6 +383,7 @@ Swap `$skills` for another group’s ids from the table in [Browse by focus](#br
 | `skill-creator` | Author skills, run evals, benchmark and tune descriptions. |
 | `slack-gif-creator` | Animated GIFs tuned for Slack constraints and tooling. |
 | `subagent-driven-development` | Execute implementation plans with a fresh subagent per task and two-stage review (spec then quality) in-session. |
+| `system-architect` | System architecture and technical design—requirements-driven solutioning, stacks, components, APIs, NFRs, trade-offs (BMAD BMM architect-style guidance). |
 | `tailwind-design-system` | Design systems with Tailwind—tokens, variants, responsive and accessible UI. |
 | `tailwind-patterns` | Tailwind CSS v4—CSS-first config, container queries, tokens, modern layout patterns. |
 | `technical-writing` | Technical documentation—specs, architecture, runbooks, APIs. |
@@ -407,14 +413,14 @@ Rough groupings—the full table above remains the source of truth for ids.
 
 | Focus | Skill ids |
 | ----- | --------- |
-| Laravel / PHP | `laravel-best-practices`, `laravel-patterns`, `laravel-security`, `laravel-expert`, `php-pro`, `debug-using-debugbar` |
+| Laravel / PHP | `laravel-best-practices`, `laravel-patterns`, `laravel-security`, `laravel-expert`, `php-pro`, `debug-using-debugbar`, `intervention-image-v3`, `intervention-image-v4` |
 | Node / TypeScript / JavaScript | `nestjs-expert`, `nodejs-best-practices`, `nodejs-backend-patterns`, `nextjs-best-practices`, `typescript-expert`, `typescript-pro`, `javascript-pro`, `javascript-mastery` |
 | Other languages | `golang-pro`, `rust-pro` |
 | Database & storage | `database`, `database-architect`, `database-design`, `nosql-expert` |
 | Testing & quality | `playwright-best-practices`, `playwright-skill`, `webapp-testing`, `testing-qa`, `test-driven-development`, `code-review-excellence`, `code-review-checklist`, `code-reviewer`, `code-review-ai-ai-review`, `receiving-code-review`, `requesting-code-review` |
 | Documents & decks | `docx`, `pdf`, `pptx`, `xlsx`, `doc-coauthoring`, `docs-architect` |
 | UI & front end | `vue-best-practices`, `frontend-design`, `web-artifacts-builder`, `canvas-design`, `algorithmic-art`, `brand-guidelines`, `extract-design-system`, `theme-factory`, `tailwind-design-system`, `tailwind-patterns`, `react-best-practices`, `senior-frontend` |
-| Planning & process | `writing-plans`, `executing-plans`, `brainstorming`, `brainstorming-new`, `architecture`, `internal-comms`, `technical-writing`, `writing-skills` |
+| Planning & process | `writing-plans`, `executing-plans`, `brainstorming`, `brainstorming-new`, `architecture`, `internal-comms`, `technical-writing`, `writing-skills`, `system-architect` |
 | Agent orchestration | `dispatching-parallel-agents`, `subagent-driven-development` |
 | Blockchain & interchain | `cometbft`, `cosmos-sdk`, `cosmos-sdk-expert`, `ignite-cli` |
 | Realtime (Ably) | `ably`, `ably-chat` |
