@@ -118,6 +118,7 @@ SKILLS=(
   itil-expert
   javascript-mastery
   javascript-pro
+  lightweight-charts
   laravel-best-practices
   laravel-expert
   laravel-patterns
@@ -190,7 +191,7 @@ $skills = @(
   'claude-api','code-review-ai-ai-review','code-review-checklist','code-review-excellence','code-reviewer','cometbft','cosmos-sdk','cosmos-sdk-expert',
   'database','database-architect','database-design','debug-using-debugbar','dispatching-parallel-agents','doc-coauthoring','docs-architect','docker-expert',
   'docx','executing-plans','extract-design-system','find-skills','frontend-design','golang-pro','ignite-cli',
-  'internal-comms','intervention-image-v3','intervention-image-v4','itil-expert','javascript-mastery','javascript-pro','laravel-best-practices','laravel-expert',
+  'internal-comms','intervention-image-v3','intervention-image-v4','itil-expert','javascript-mastery','javascript-pro','lightweight-charts','laravel-best-practices','laravel-expert',
   'laravel-patterns','laravel-security','mcp-builder','n8n-code-javascript','n8n-code-python','n8n-expression-syntax',
   'n8n-mcp-tools-expert','n8n-node-configuration','n8n-validation-expert','n8n-workflow-patterns','nestjs-expert',
   'nextjs-best-practices','nodejs-backend-patterns','nodejs-best-practices','nosql-expert','pdf','php-pro',
@@ -347,6 +348,7 @@ Swap `$skills` for another group’s ids from the table in [Browse by focus](#br
 | `itil-expert` | ITIL 4 / ITIL 5-oriented service management, governance, and digital product practices. |
 | `javascript-mastery` | Core JavaScript concepts and deep language understanding (modern JS ecosystem). |
 | `javascript-pro` | Modern JavaScript (ES6+), async patterns, browser and Node.js APIs. |
+| `lightweight-charts` | TradingView Lightweight Charts v5 in the browser—createChart, addSeries, setData vs update, realtime ticks, React/Next.js, custom series plugins. |
 | `laravel-best-practices` | Laravel PHP patterns—controllers, Eloquent, validation, auth, queues, performance, security (rule-backed). |
 | `laravel-expert` | Senior Laravel engineering—clean architecture, security, performance, Laravel 10/11+ idioms. |
 | `laravel-patterns` | Laravel architecture: routing, Eloquent, services, queues, events, APIs. |
@@ -414,7 +416,7 @@ Rough groupings—the full table above remains the source of truth for ids.
 | Focus | Skill ids |
 | ----- | --------- |
 | Laravel / PHP | `laravel-best-practices`, `laravel-patterns`, `laravel-security`, `laravel-expert`, `php-pro`, `debug-using-debugbar`, `intervention-image-v3`, `intervention-image-v4` |
-| Node / TypeScript / JavaScript | `nestjs-expert`, `nodejs-best-practices`, `nodejs-backend-patterns`, `nextjs-best-practices`, `typescript-expert`, `typescript-pro`, `javascript-pro`, `javascript-mastery` |
+| Node / TypeScript / JavaScript | `nestjs-expert`, `nodejs-best-practices`, `nodejs-backend-patterns`, `nextjs-best-practices`, `typescript-expert`, `typescript-pro`, `javascript-pro`, `javascript-mastery`, `lightweight-charts` |
 | Other languages | `golang-pro`, `rust-pro` |
 | Database & storage | `database`, `database-architect`, `database-design`, `nosql-expert` |
 | Testing & quality | `playwright-best-practices`, `playwright-skill`, `webapp-testing`, `testing-qa`, `test-driven-development`, `code-review-excellence`, `code-review-checklist`, `code-reviewer`, `code-review-ai-ai-review`, `receiving-code-review`, `requesting-code-review` |
